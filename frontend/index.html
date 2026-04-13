@@ -174,6 +174,21 @@
     .date-col { white-space: nowrap; color: var(--muted); font-size: 0.8rem; }
     .loc-col  { color: var(--muted); font-size: 0.82rem; }
     @media (max-width: 768px) { .stats-row { grid-template-columns: repeat(2, 1fr); } .hide-mobile { display: none; } }
+
+    /* ── Loading screen ── */
+    #loading-screen {
+      position: fixed; inset: 0; background: var(--bg); z-index: 9000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem;
+    }
+    #loading-screen .logo { font-size: 1.8rem; font-weight: 800; color: var(--accent); }
+    #loading-screen .sub  { font-size: 0.875rem; color: var(--muted); }
+    /* Wake-up banner */
+    .wakeup-banner {
+      background: #1a1d27; border: 1px solid var(--yellow); color: var(--yellow);
+      border-radius: 8px; padding: 0.6rem 1rem; font-size: 0.82rem; display: none;
+      align-items: center; gap: 0.5rem; margin: 0 1.5rem;
+    }
+    .wakeup-banner.visible { display: flex; }
   </style>
 </head>
 <body>
@@ -181,7 +196,14 @@
 <!-- ═══════════════════════════════════════════════════════════
      AUTH SCREEN
 ════════════════════════════════════════════════════════════ -->
-<div id="auth-screen">
+<!-- ── Loading Screen (shown while checking auth) ── -->
+<div id="loading-screen">
+  <div class="logo"><i class="bi bi-crosshair2"></i> Job Hunter</div>
+  <i class="bi bi-arrow-repeat spin" style="font-size:1.5rem;color:var(--accent);"></i>
+  <div class="sub">Chargement…</div>
+</div>
+
+<div id="auth-screen" style="display:none;">
   <div class="auth-card">
     <div class="auth-logo"><i class="bi bi-crosshair2"></i> Job Hunter</div>
     <div class="auth-sub">Trouvez votre prochain poste</div>
@@ -232,6 +254,12 @@
       <button class="btn-ghost" onclick="doLogout()" title="Déconnexion"><i class="bi bi-box-arrow-right"></i></button>
     </div>
   </nav>
+
+  <!-- Wake-up banner -->
+  <div class="wakeup-banner" id="wakeup-banner">
+    <i class="bi bi-hourglass-split spin"></i>
+    <span>Le serveur se réveille (plan gratuit Render) — cela peut prendre jusqu'à 30 secondes…</span>
+  </div>
 
   <!-- Scrape progress bar -->
   <div class="scrape-bar" id="scrape-bar">
@@ -443,12 +471,19 @@ async function doLogout() {
   showAuthScreen();
 }
 
+function hideLoading() {
+  const el = document.getElementById('loading-screen');
+  if (el) el.style.display = 'none';
+}
+
 function showAuthScreen() {
+  hideLoading();
   document.getElementById('auth-screen').style.display = '';
   document.getElementById('app-screen').style.display  = 'none';
 }
 
 function showAppScreen(session) {
+  hideLoading();
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').style.display  = '';
   document.getElementById('user-email-badge').textContent = session.user.email;
@@ -471,24 +506,54 @@ function authHeaders() {
   };
 }
 
-async function apiFetch(path, opts = {}) {
+async function apiFetch(path, opts = {}, retryOnWakeUp = true) {
   const url = CONFIG.API_URL + path;
-  const res = await fetch(url, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) } });
+  let res;
+  try {
+    res = await fetch(url, {
+      ...opts,
+      headers: { ...authHeaders(), ...(opts.headers || {}) },
+      signal: AbortSignal.timeout(55000), // 55s pour laisser le temps à Render de se réveiller
+    });
+  } catch (err) {
+    // Réseau inaccessible ou timeout
+    if (retryOnWakeUp) {
+      // Affiche le bandeau "serveur se réveille"
+      document.getElementById('wakeup-banner').classList.add('visible');
+      // Réessaie une fois après 5 secondes
+      await new Promise(r => setTimeout(r, 5000));
+      return apiFetch(path, opts, false);
+    }
+    document.getElementById('wakeup-banner').classList.remove('visible');
+    throw new Error(`Serveur inaccessible : ${err.message}`);
+  }
+
+  document.getElementById('wakeup-banner').classList.remove('visible');
 
   // Token expiré → refresh
   if (res.status === 401) {
     const { data } = await sb.auth.refreshSession();
     if (data?.session) {
       currentSession = data.session;
-      const res2 = await fetch(url, { ...opts, headers: authHeaders() });
-      if (!res2.ok) throw new Error(await res2.text());
+      const res2 = await fetch(url, {
+        ...opts,
+        headers: authHeaders(),
+        signal: AbortSignal.timeout(55000),
+      });
+      if (!res2.ok) {
+        const body = await res2.text().catch(() => '');
+        throw new Error(`HTTP ${res2.status} : ${body.slice(0, 200)}`);
+      }
       return res2.json();
     }
-    doLogout();
-    throw new Error('Session expirée');
+    await doLogout();
+    throw new Error('Session expirée — reconnectez-vous');
   }
 
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} : ${body.slice(0, 200)}`);
+  }
   return res.json();
 }
 
@@ -518,11 +583,16 @@ async function initApp() {
 // ════════════════════════════════════════════════════════════
 
 async function loadJobs() {
+  document.getElementById('jobs-table-body').innerHTML =
+    `<tr><td colspan="6"><div class="empty-state"><i class="bi bi-arrow-repeat spin"></i>Chargement des offres…</div></td></tr>`;
   try {
     allJobs = await apiFetch('/api/jobs');
     applyFilters();
   } catch (e) {
-    toast('Erreur de chargement des offres', 'error');
+    const msg = e.message || 'Erreur inconnue';
+    toast(`Erreur chargement offres : ${msg}`, 'error', 8000);
+    document.getElementById('jobs-table-body').innerHTML =
+      `<tr><td colspan="6"><div class="empty-state"><i class="bi bi-exclamation-triangle"></i>Impossible de charger les offres.<br><small style="color:var(--red);margin-top:0.5rem;display:block;">${esc(msg)}</small></div></td></tr>`;
   }
 }
 
@@ -813,24 +883,32 @@ if (CONFIG.POSTHOG_KEY) {
 // ════════════════════════════════════════════════════════════
 
 (async () => {
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    onSessionReady(session);
-  } else {
-    showAuthScreen();
-  }
-
-  // Écoute les changements d'état auth (ex: token refresh automatique)
+  // ① Enregistre le listener EN PREMIER pour ne pas rater les événements
+  //    déclenchés pendant l'échange du code PKCE ou du hash d'email-confirmation
   sb.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_IN' && session && !currentSession) {
+      // Connexion fraîche (email confirmé, Google OAuth, etc.)
       onSessionReady(session);
+    } else if (event === 'TOKEN_REFRESHED' && session) {
+      // Refresh silencieux — on met juste à jour le token
+      currentSession = session;
     } else if (event === 'SIGNED_OUT') {
       currentSession = null;
+      allJobs = [];
       showAuthScreen();
-    } else if (session) {
-      currentSession = session; // mise à jour du token refreshé
     }
   });
+
+  // ② Vérifie s'il existe déjà une session (aussi : traite le hash
+  //    #access_token=… que Supabase ajoute après confirmation d'email)
+  const { data: { session }, error } = await sb.auth.getSession();
+  if (session && !currentSession) {
+    // Session trouvée sans que onAuthStateChange l'ait déjà traitée
+    onSessionReady(session);
+  } else if (!session && !currentSession) {
+    showAuthScreen();
+  }
+  // Si currentSession est déjà défini → onAuthStateChange s'en est chargé
 })();
 </script>
 </body>
