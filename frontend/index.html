@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Hunter</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a; --border: #2d3148;
+      --accent: #6c63ff; --accent-hover: #8b83ff; --text: #e2e8f0; --muted: #8892a4;
+      --green: #22c55e; --blue: #3b82f6; --red: #ef4444; --yellow: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; margin: 0; }
+
+    /* ── Auth screen ── */
+    #auth-screen {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at 50% 0%, #1a1d3a 0%, var(--bg) 70%);
+    }
+    .auth-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      padding: 2.5rem; width: 400px; max-width: 95vw;
+    }
+    .auth-logo { font-size: 1.8rem; font-weight: 800; color: var(--accent); text-align: center; margin-bottom: 0.25rem; }
+    .auth-sub  { color: var(--muted); font-size: 0.875rem; text-align: center; margin-bottom: 2rem; }
+    .auth-tabs { display: flex; gap: 0; margin-bottom: 1.75rem; background: var(--surface2); border-radius: 8px; padding: 4px; }
+    .auth-tab  {
+      flex: 1; text-align: center; padding: 0.45rem; border-radius: 6px; cursor: pointer;
+      font-size: 0.875rem; font-weight: 500; color: var(--muted); transition: all 0.15s;
+    }
+    .auth-tab.active { background: var(--accent); color: #fff; }
+    .auth-form label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .auth-form input {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: 0.6rem 0.9rem; font-size: 0.9rem; outline: none; margin-bottom: 1rem;
+      transition: border-color 0.15s;
+    }
+    .auth-form input:focus { border-color: var(--accent); }
+    .auth-btn {
+      width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 8px;
+      padding: 0.7rem; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: background 0.15s;
+    }
+    .auth-btn:hover:not(:disabled) { background: var(--accent-hover); }
+    .auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .auth-error { color: var(--red); font-size: 0.82rem; margin-top: 0.75rem; min-height: 1.2rem; text-align: center; }
+    .auth-success { color: var(--green); font-size: 0.82rem; margin-top: 0.75rem; min-height: 1.2rem; text-align: center; }
+
+    /* ── App screen ── */
+    #app-screen { display: none; }
+
+    /* ── Navbar ── */
+    .navbar {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .navbar-brand { font-size: 1.15rem; font-weight: 700; color: var(--accent); text-decoration: none; display: flex; align-items: center; gap: 0.5rem; }
+    .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+    .user-badge { font-size: 0.78rem; color: var(--muted); }
+
+    /* ── Stats ── */
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; padding: 1.25rem 1.5rem; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; }
+    .stat-card .label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-card .value { font-size: 1.8rem; font-weight: 700; }
+    .stat-card.total .value { color: var(--accent); }
+    .stat-card.a-traiter .value { color: var(--yellow); }
+    .stat-card.postule .value { color: var(--blue); }
+    .stat-card.ignore .value { color: var(--muted); }
+
+    /* ── Filters ── */
+    .filters-bar {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+    }
+    .filters-bar input, .filters-bar select {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 6px; padding: 0.4rem 0.75rem; font-size: 0.875rem; outline: none;
+    }
+    .filters-bar input:focus, .filters-bar select:focus { border-color: var(--accent); }
+    .filters-bar select option { background: var(--surface2); }
+
+    /* ── Table ── */
+    .table-wrap { padding: 1rem 1.5rem; overflow-x: auto; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 0.875rem; }
+    thead th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.5rem 0.75rem; cursor: pointer; font-weight: 600; }
+    thead th:hover { color: var(--text); }
+    tbody tr { background: var(--surface); transition: background 0.1s; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody td { padding: 0.7rem 0.75rem; vertical-align: middle; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    tbody td:first-child { border-left: 1px solid var(--border); border-radius: 8px 0 0 8px; }
+    tbody td:last-child  { border-right: 1px solid var(--border); border-radius: 0 8px 8px 0; }
+    .job-title a { color: var(--text); text-decoration: none; font-weight: 600; }
+    .job-title a:hover { color: var(--accent); text-decoration: underline; }
+    .job-company { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+
+    /* ── Badges ── */
+    .badge-source { font-size: 0.7rem; padding: 2px 7px; border-radius: 20px; font-weight: 500; }
+    .badge-wttj { background: #1a2035; color: #6c63ff; border: 1px solid #6c63ff44; }
+    .badge-hw   { background: #1a2a1a; color: #22c55e; border: 1px solid #22c55e44; }
+    .badge-new  { background: #3b1a00; color: var(--yellow); border: 1px solid var(--yellow); font-size: 0.65rem; margin-left: 4px; }
+
+    /* ── Status buttons ── */
+    .status-btns { display: flex; gap: 4px; }
+    .btn-status {
+      font-size: 0.72rem; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--border);
+      background: var(--surface2); color: var(--muted); cursor: pointer; white-space: nowrap; transition: all 0.15s;
+    }
+    .btn-status:hover { border-color: var(--accent); color: var(--text); }
+    .btn-status.active-traiter { background: #3d2a00; color: var(--yellow); border-color: var(--yellow); }
+    .btn-status.active-postule { background: #0d1f3c; color: var(--blue);   border-color: var(--blue); }
+    .btn-status.active-ignore  { background: #1a1a1a; color: var(--muted);  border-color: var(--muted); }
+
+    /* ── Buttons ── */
+    .btn-primary-custom {
+      background: var(--accent); color: #fff; border: none; border-radius: 8px;
+      padding: 0.5rem 1.1rem; font-size: 0.875rem; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 0.4rem; transition: background 0.15s;
+    }
+    .btn-primary-custom:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-primary-custom:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-outline-custom {
+      background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.5rem 1rem; font-size: 0.875rem; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; transition: all 0.15s;
+    }
+    .btn-outline-custom:hover { color: var(--text); border-color: var(--accent); }
+    .btn-ghost { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.82rem; padding: 0.4rem 0.6rem; border-radius: 6px; }
+    .btn-ghost:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+
+    /* ── Toast ── */
+    .toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; }
+    .toast-msg { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.875rem; max-width: 320px; animation: slideIn 0.2s ease; }
+    .toast-msg.success { border-left: 3px solid var(--green); }
+    .toast-msg.error   { border-left: 3px solid var(--red); }
+    .toast-msg.info    { border-left: 3px solid var(--accent); }
+    @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* ── Modal ── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: none; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; width: 560px; max-width: 95vw; max-height: 85vh; overflow-y: auto; }
+    .modal-box h3 { margin: 0 0 1.5rem; font-size: 1.1rem; }
+    .form-group { margin-bottom: 1.1rem; }
+    .form-group label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .form-group input { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.875rem; outline: none; }
+    .form-group input:focus { border-color: var(--accent); }
+    .form-hint { font-size: 0.75rem; color: var(--muted); margin-top: 0.3rem; }
+
+    /* ── Tabs (History / Jobs) ── */
+    .tab-bar { display: flex; gap: 0; padding: 0 1.5rem; border-bottom: 1px solid var(--border); background: var(--surface); }
+    .tab-btn { padding: 0.75rem 1.25rem; font-size: 0.875rem; color: var(--muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; transition: all 0.15s; }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── History table ── */
+    .history-table { padding: 1rem 1.5rem; }
+    .history-row { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; }
+    .history-row .hr-date { color: var(--muted); font-size: 0.8rem; }
+    .history-row .hr-stats { display: flex; gap: 1rem; }
+    .hr-new { color: var(--green); font-weight: 600; }
+    .hr-kw  { color: var(--muted); font-size: 0.78rem; }
+
+    /* ── Misc ── */
+    .scrape-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0.6rem 1.5rem; display: none; align-items: center; gap: 0.75rem; font-size: 0.85rem; color: var(--accent); }
+    .scrape-bar.visible { display: flex; }
+    .spin { animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty-state { text-align: center; padding: 4rem 2rem; color: var(--muted); }
+    .empty-state i { font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.4; }
+    .date-col { white-space: nowrap; color: var(--muted); font-size: 0.8rem; }
+    .loc-col  { color: var(--muted); font-size: 0.82rem; }
+    @media (max-width: 768px) { .stats-row { grid-template-columns: repeat(2, 1fr); } .hide-mobile { display: none; } }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     AUTH SCREEN
+════════════════════════════════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo"><i class="bi bi-crosshair2"></i> Job Hunter</div>
+    <div class="auth-sub">Trouvez votre prochain poste</div>
+
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-login"  onclick="switchTab('login')">Connexion</div>
+      <div class="auth-tab"        id="tab-signup" onclick="switchTab('signup')">Inscription</div>
+    </div>
+
+    <!-- Login form -->
+    <div id="form-login" class="auth-form">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="vous@exemple.com" autocomplete="email" />
+      <label>Mot de passe</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" />
+      <button class="auth-btn" id="btn-login" onclick="doLogin()">Se connecter</button>
+      <div class="auth-error" id="login-error"></div>
+    </div>
+
+    <!-- Signup form -->
+    <div id="form-signup" class="auth-form" style="display:none;">
+      <label>Email</label>
+      <input type="email" id="signup-email" placeholder="vous@exemple.com" autocomplete="email" />
+      <label>Mot de passe</label>
+      <input type="password" id="signup-pass" placeholder="Min. 8 caractères" autocomplete="new-password" />
+      <button class="auth-btn" id="btn-signup" onclick="doSignup()">Créer mon compte</button>
+      <div class="auth-error" id="signup-error"></div>
+      <div class="auth-success" id="signup-success"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     APP SCREEN
+════════════════════════════════════════════════════════════ -->
+<div id="app-screen">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a class="navbar-brand" href="#">
+      <i class="bi bi-crosshair2"></i> Job Hunter
+    </a>
+    <div class="nav-right">
+      <span class="user-badge" id="user-email-badge"></span>
+      <span id="last-run-label" style="font-size:0.78rem;color:var(--muted);"></span>
+      <button class="btn-outline-custom" onclick="openSettings()"><i class="bi bi-gear"></i> Paramètres</button>
+      <button class="btn-primary-custom" id="btn-scrape" onclick="startScrape()"><i class="bi bi-search"></i> Lancer la recherche</button>
+      <button class="btn-ghost" onclick="doLogout()" title="Déconnexion"><i class="bi bi-box-arrow-right"></i></button>
+    </div>
+  </nav>
+
+  <!-- Scrape progress bar -->
+  <div class="scrape-bar" id="scrape-bar">
+    <i class="bi bi-arrow-repeat spin"></i>
+    <span>Scraping en cours… les résultats apparaîtront automatiquement.</span>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card total">     <span class="label">Total offres</span><span class="value" id="stat-total">—</span></div>
+    <div class="stat-card a-traiter"> <span class="label">À traiter</span>   <span class="value" id="stat-traiter">—</span></div>
+    <div class="stat-card postule">   <span class="label">Postulé</span>     <span class="value" id="stat-postule">—</span></div>
+    <div class="stat-card ignore">    <span class="label">Ignoré</span>      <span class="value" id="stat-ignore">—</span></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchMainTab('jobs')">Offres</button>
+    <button class="tab-btn"        onclick="switchMainTab('history')">Historique</button>
+  </div>
+
+  <!-- ── Tab: Jobs ── -->
+  <div class="tab-panel active" id="panel-jobs">
+    <div class="filters-bar">
+      <i class="bi bi-funnel" style="color:var(--muted);"></i>
+      <input type="text" id="filter-search" placeholder="Rechercher…" style="width:220px;" oninput="applyFilters()" />
+      <select id="filter-statut" onchange="applyFilters()">
+        <option value="">Tous statuts</option>
+        <option value="sans_statut">Sans statut</option>
+        <option value="a_traiter">À traiter</option>
+        <option value="postule">Postulé</option>
+        <option value="ignore">Ignoré</option>
+      </select>
+      <select id="filter-source" onchange="applyFilters()">
+        <option value="">Toutes sources</option>
+        <option value="welcometothejungle">WTTJ</option>
+        <option value="hellowork">Hellowork</option>
+      </select>
+      <select id="filter-days" onchange="applyFilters()">
+        <option value="">Toutes dates</option>
+        <option value="7">7 derniers jours</option>
+        <option value="14">14 derniers jours</option>
+        <option value="30">30 derniers jours</option>
+      </select>
+      <span style="margin-left:auto;font-size:0.8rem;color:var(--muted);" id="count-label"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortBy('titre')">Poste <i class="bi bi-chevron-expand" style="font-size:0.65rem;"></i></th>
+            <th onclick="sortBy('entreprise')" class="hide-mobile">Entreprise</th>
+            <th class="hide-mobile">Localisation</th>
+            <th onclick="sortBy('date_publication')">Date <i class="bi bi-chevron-expand" style="font-size:0.65rem;"></i></th>
+            <th class="hide-mobile">Source</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody id="jobs-table-body">
+          <tr><td colspan="6"><div class="empty-state"><i class="bi bi-inbox"></i>Chargement…</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Tab: History ── -->
+  <div class="tab-panel" id="panel-history">
+    <div class="history-table" id="history-list">
+      <div class="empty-state"><i class="bi bi-clock-history"></i>Aucune recherche effectuée.</div>
+    </div>
+  </div>
+
+</div><!-- end app-screen -->
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settings-modal" onclick="closeSettingsOnBg(event)">
+  <div class="modal-box">
+    <h3><i class="bi bi-sliders" style="color:var(--accent);margin-right:0.5rem;"></i>Paramètres de recherche</h3>
+    <div class="form-group">
+      <label>Mots-clés</label>
+      <input type="text" id="s-mots-cles" placeholder="business developer, sales ops, revops" />
+      <div class="form-hint">Séparés par des virgules</div>
+    </div>
+    <div class="form-group">
+      <label>Localisations</label>
+      <input type="text" id="s-localisation" placeholder="Lyon, remote" />
+      <div class="form-hint">Séparées par des virgules</div>
+    </div>
+    <div class="form-group">
+      <label>Salaire minimum (€/an)</label>
+      <input type="number" id="s-salaire-min" placeholder="35000" />
+    </div>
+    <div class="form-group">
+      <label>Offres max (jours)</label>
+      <input type="number" id="s-date-max" value="30" min="1" max="90" />
+    </div>
+    <div class="form-group">
+      <label>Mots-clés exclus</label>
+      <input type="text" id="s-exclus" placeholder="stage, alternance" />
+      <div class="form-hint">Séparés par des virgules</div>
+    </div>
+    <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1.5rem;">
+      <button class="btn-outline-custom" onclick="closeSettings()">Annuler</button>
+      <button class="btn-primary-custom" onclick="saveSettings()"><i class="bi bi-check2"></i> Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ── Supabase JS SDK ── -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// CONFIG — Remplir ces 3 valeurs avant déploiement
+// ════════════════════════════════════════════════════════════
+const CONFIG = {
+  // 1. Supabase Dashboard → Project Settings → API → Project URL
+  SUPABASE_URL: 'https://VOTRE_PROJECT_REF.supabase.co',
+
+  // 2. Supabase Dashboard → Project Settings → API → Publishable (anon) key
+  SUPABASE_PUBLISHABLE_KEY: 'VOTRE_PUBLISHABLE_KEY',
+
+  // 3. URL de votre backend Render (ex: https://job-hunter-api.onrender.com)
+  //    Laisser vide '' si le frontend est servi par le même serveur.
+  API_URL: '',
+
+  // PostHog analytics (optionnel — laisser vide pour désactiver)
+  POSTHOG_KEY: '',
+  POSTHOG_HOST: 'https://app.posthog.com',
+};
+
+// ── Supabase init ──────────────────────────────────────────
+const { createClient } = supabase;
+const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_PUBLISHABLE_KEY);
+
+// ── State ─────────────────────────────────────────────────
+let currentSession = null;
+let allJobs = [];
+let sortField = 'date_publication';
+let sortAsc = false;
+let scrapePoller = null;
+
+// ════════════════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════════════════
+
+function switchTab(tab) {
+  document.getElementById('form-login').style.display  = tab === 'login'  ? '' : 'none';
+  document.getElementById('form-signup').style.display = tab === 'signup' ? '' : 'none';
+  document.getElementById('tab-login').className  = 'auth-tab' + (tab === 'login'  ? ' active' : '');
+  document.getElementById('tab-signup').className = 'auth-tab' + (tab === 'signup' ? ' active' : '');
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const err   = document.getElementById('login-error');
+  const btn   = document.getElementById('btn-login');
+
+  err.textContent = '';
+  if (!email || !pass) { err.textContent = 'Veuillez remplir tous les champs.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Connexion…';
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false;
+  btn.textContent = 'Se connecter';
+
+  if (error) { err.textContent = error.message; return; }
+  onSessionReady(data.session);
+}
+
+async function doSignup() {
+  const email   = document.getElementById('signup-email').value.trim();
+  const pass    = document.getElementById('signup-pass').value;
+  const err     = document.getElementById('signup-error');
+  const success = document.getElementById('signup-success');
+  const btn     = document.getElementById('btn-signup');
+
+  err.textContent = '';
+  success.textContent = '';
+  if (!email || !pass) { err.textContent = 'Veuillez remplir tous les champs.'; return; }
+  if (pass.length < 8)  { err.textContent = 'Le mot de passe doit faire au moins 8 caractères.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Création…';
+
+  const { data, error } = await sb.auth.signUp({ email, password: pass });
+  btn.disabled = false;
+  btn.textContent = 'Créer mon compte';
+
+  if (error) { err.textContent = error.message; return; }
+
+  if (data.session) {
+    onSessionReady(data.session);
+  } else {
+    success.textContent = '✓ Compte créé. Vérifiez votre email pour confirmer.';
+  }
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  currentSession = null;
+  allJobs = [];
+  showAuthScreen();
+}
+
+function showAuthScreen() {
+  document.getElementById('auth-screen').style.display = '';
+  document.getElementById('app-screen').style.display  = 'none';
+}
+
+function showAppScreen(session) {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display  = '';
+  document.getElementById('user-email-badge').textContent = session.user.email;
+}
+
+function onSessionReady(session) {
+  currentSession = session;
+  showAppScreen(session);
+  initApp();
+}
+
+// ════════════════════════════════════════════════════════════
+// API HELPERS
+// ════════════════════════════════════════════════════════════
+
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${currentSession?.access_token || ''}`,
+  };
+}
+
+async function apiFetch(path, opts = {}) {
+  const url = CONFIG.API_URL + path;
+  const res = await fetch(url, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) } });
+
+  // Token expiré → refresh
+  if (res.status === 401) {
+    const { data } = await sb.auth.refreshSession();
+    if (data?.session) {
+      currentSession = data.session;
+      const res2 = await fetch(url, { ...opts, headers: authHeaders() });
+      if (!res2.ok) throw new Error(await res2.text());
+      return res2.json();
+    }
+    doLogout();
+    throw new Error('Session expirée');
+  }
+
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+// ════════════════════════════════════════════════════════════
+// APP INIT
+// ════════════════════════════════════════════════════════════
+
+async function initApp() {
+  await Promise.all([loadJobs(), loadStats()]);
+
+  // Vérifie si un scrape est déjà en cours
+  try {
+    const status = await apiFetch('/api/scrape/status');
+    if (status.running) {
+      setScrapeBtnRunning();
+      pollScrapeStatus();
+    }
+    if (status.last_run) {
+      document.getElementById('last-run-label').textContent =
+        `Dernier scan : ${new Date(status.last_run).toLocaleTimeString('fr-FR')}`;
+    }
+  } catch {}
+}
+
+// ════════════════════════════════════════════════════════════
+// JOBS
+// ════════════════════════════════════════════════════════════
+
+async function loadJobs() {
+  try {
+    allJobs = await apiFetch('/api/jobs');
+    applyFilters();
+  } catch (e) {
+    toast('Erreur de chargement des offres', 'error');
+  }
+}
+
+async function loadStats() {
+  try {
+    const s = await apiFetch('/api/stats');
+    document.getElementById('stat-total').textContent   = s.total;
+    document.getElementById('stat-traiter').textContent = s.a_traiter;
+    document.getElementById('stat-postule').textContent = s.postule;
+    document.getElementById('stat-ignore').textContent  = s.ignore;
+  } catch {}
+}
+
+function applyFilters() {
+  const search = document.getElementById('filter-search').value.toLowerCase();
+  const statut = document.getElementById('filter-statut').value;
+  const source = document.getElementById('filter-source').value;
+  const days   = parseInt(document.getElementById('filter-days').value) || 0;
+  const now    = new Date();
+
+  let filtered = allJobs.filter(job => {
+    if (search) {
+      const hay = `${job.titre} ${job.entreprise} ${job.localisation || ''}`.toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    if (source && job.source !== source) return false;
+    if (days && (now - new Date(job.date_publication)) > days * 86400000) return false;
+    if (statut) {
+      if (statut === 'sans_statut' && job.statut)         return false;
+      if (statut !== 'sans_statut' && job.statut !== statut) return false;
+    }
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    let va = a[sortField], vb = b[sortField];
+    if (sortField === 'date_publication') { va = new Date(va); vb = new Date(vb); }
+    else { va = (va || '').toLowerCase(); vb = (vb || '').toLowerCase(); }
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ?  1 : -1;
+    return 0;
+  });
+
+  renderTable(filtered);
+  document.getElementById('count-label').textContent = `${filtered.length} offre${filtered.length !== 1 ? 's' : ''}`;
+}
+
+function sortBy(field) {
+  if (sortField === field) sortAsc = !sortAsc;
+  else { sortField = field; sortAsc = false; }
+  applyFilters();
+}
+
+function renderTable(jobs) {
+  const tbody = document.getElementById('jobs-table-body');
+  if (!jobs.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="bi bi-inbox"></i>Aucune offre. Lancez une recherche !</div></td></tr>`;
+    return;
+  }
+  const statusLabels = { a_traiter: 'À traiter', postule: 'Postulé', ignore: 'Ignoré' };
+
+  tbody.innerHTML = jobs.map(job => {
+    const s = job.statut || '';
+    const newBadge = (new Date() - new Date(job.date_publication)) < 3*86400000 ? '<span class="badge-new">NEW</span>' : '';
+    return `<tr>
+      <td class="job-title">
+        <a href="${job.url}" target="_blank" rel="noopener">${esc(job.titre)}</a>${newBadge}
+        ${job.salaire ? `<div style="font-size:0.75rem;color:var(--green);margin-top:2px;">${esc(job.salaire)}</div>` : ''}
+      </td>
+      <td class="job-company hide-mobile">${esc(job.entreprise)}</td>
+      <td class="loc-col hide-mobile">${esc(job.localisation || '—')}</td>
+      <td class="date-col">${fmtDate(job.date_publication)}</td>
+      <td class="hide-mobile">${sourceBadge(job.source)}</td>
+      <td>
+        <div class="status-btns">
+          <button class="btn-status ${s==='a_traiter'?'active-traiter':''}" onclick="setStatus(${job.id},'a_traiter')">📋 Traiter</button>
+          <button class="btn-status ${s==='postule'   ?'active-postule':''}" onclick="setStatus(${job.id},'postule')"  >✅ Postulé</button>
+          <button class="btn-status ${s==='ignore'    ?'active-ignore' :''}" onclick="setStatus(${job.id},'ignore')"   >✗ Ignorer</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function setStatus(jobId, statut) {
+  try {
+    await apiFetch('/api/status', {
+      method: 'POST',
+      body: JSON.stringify({ job_id: jobId, statut }),
+    });
+    const job = allJobs.find(j => j.id === jobId);
+    if (job) job.statut = statut;
+    applyFilters();
+    loadStats();
+    const labels = { a_traiter: 'À traiter', postule: 'Postulé ✅', ignore: 'Ignoré' };
+    toast(`Statut : ${labels[statut]}`, 'success', 2000);
+    posthogCapture('status_changed', { statut });
+  } catch {
+    toast('Erreur lors de la mise à jour', 'error');
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// SCRAPING
+// ════════════════════════════════════════════════════════════
+
+async function startScrape() {
+  const btn = document.getElementById('btn-scrape');
+  btn.disabled = true;
+  setScrapeBtnRunning();
+
+  try {
+    const data = await apiFetch('/api/scrape/start', { method: 'POST' });
+    if (data.status === 'already_running') { toast('Scraping déjà en cours…', 'info'); return; }
+    toast('Scraping lancé !', 'info');
+    posthogCapture('scrape_started');
+    pollScrapeStatus();
+  } catch {
+    toast('Impossible de lancer le scraping', 'error');
+    resetScrapeBtn();
+  }
+}
+
+function setScrapeBtnRunning() {
+  const btn = document.getElementById('btn-scrape');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> En cours…';
+  document.getElementById('scrape-bar').classList.add('visible');
+}
+
+function resetScrapeBtn() {
+  const btn = document.getElementById('btn-scrape');
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-search"></i> Lancer la recherche';
+  document.getElementById('scrape-bar').classList.remove('visible');
+}
+
+function pollScrapeStatus() {
+  if (scrapePoller) clearInterval(scrapePoller);
+  scrapePoller = setInterval(async () => {
+    try {
+      const data = await apiFetch('/api/scrape/status');
+      if (!data.running) {
+        clearInterval(scrapePoller);
+        resetScrapeBtn();
+        if (data.error) {
+          toast(`Erreur scraping : ${data.error}`, 'error', 6000);
+        } else if (data.last_result) {
+          const r = data.last_result;
+          toast(`✓ ${r.new} nouvelle${r.new!==1?'s':''} offre${r.new!==1?'s':''} (${r.total_scraped} scrapées)`, 'success', 5000);
+          document.getElementById('last-run-label').textContent =
+            `Dernier scan : ${new Date().toLocaleTimeString('fr-FR')}`;
+        }
+        await loadJobs();
+        await loadStats();
+      }
+    } catch {}
+  }, 2500);
+}
+
+// ════════════════════════════════════════════════════════════
+// SETTINGS
+// ════════════════════════════════════════════════════════════
+
+async function openSettings() {
+  try {
+    const s = await apiFetch('/api/settings');
+    document.getElementById('s-mots-cles').value    = (s.mots_cles || []).join(', ');
+    document.getElementById('s-localisation').value = (s.localisation || []).join(', ');
+    document.getElementById('s-salaire-min').value  = s.salaire_min || '';
+    document.getElementById('s-date-max').value     = s.date_max || 30;
+    document.getElementById('s-exclus').value       = (s.mots_cles_exclus || []).join(', ');
+  } catch { toast('Erreur chargement paramètres', 'error'); }
+  document.getElementById('settings-modal').classList.add('open');
+}
+
+function closeSettings() { document.getElementById('settings-modal').classList.remove('open'); }
+function closeSettingsOnBg(e) { if (e.target.id === 'settings-modal') closeSettings(); }
+
+async function saveSettings() {
+  const split = s => s.split(',').map(x => x.trim()).filter(Boolean);
+  const payload = {
+    mots_cles:       split(document.getElementById('s-mots-cles').value),
+    localisation:    split(document.getElementById('s-localisation').value),
+    salaire_min:     parseInt(document.getElementById('s-salaire-min').value) || null,
+    date_max:        parseInt(document.getElementById('s-date-max').value) || 30,
+    mots_cles_exclus: split(document.getElementById('s-exclus').value),
+  };
+  try {
+    await apiFetch('/api/settings', { method: 'PUT', body: JSON.stringify(payload) });
+    toast('Paramètres sauvegardés', 'success');
+    closeSettings();
+  } catch { toast('Erreur lors de la sauvegarde', 'error'); }
+}
+
+// ════════════════════════════════════════════════════════════
+// HISTORY
+// ════════════════════════════════════════════════════════════
+
+async function loadHistory() {
+  try {
+    const runs = await apiFetch('/api/history');
+    const el = document.getElementById('history-list');
+    if (!runs.length) {
+      el.innerHTML = '<div class="empty-state"><i class="bi bi-clock-history"></i>Aucune recherche effectuée.</div>';
+      return;
+    }
+    el.innerHTML = runs.map(r => `
+      <div class="history-row">
+        <div>
+          <span class="hr-date">${new Date(r.date_run).toLocaleString('fr-FR')}</span>
+          ${r.mots_cles ? `<div class="hr-kw">${r.mots_cles.join(', ')}</div>` : ''}
+        </div>
+        <div class="hr-stats">
+          <span>${r.nombre_resultats} offres trouvées</span>
+          <span class="hr-new">+${r.nouveaux} nouvelles</span>
+        </div>
+      </div>`).join('');
+  } catch {}
+}
+
+// ════════════════════════════════════════════════════════════
+// TABS (main)
+// ════════════════════════════════════════════════════════════
+
+function switchMainTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) =>
+    b.classList.toggle('active', (tab==='jobs' && i===0) || (tab==='history' && i===1)));
+  document.getElementById('panel-jobs').classList.toggle('active', tab === 'jobs');
+  document.getElementById('panel-history').classList.toggle('active', tab === 'history');
+  if (tab === 'history') loadHistory();
+}
+
+// ════════════════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════════════════
+
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso), now = new Date();
+  const diff = Math.floor((now - d) / 86400000);
+  if (diff === 0) return "Aujourd'hui";
+  if (diff === 1) return 'Hier';
+  if (diff < 7)   return `il y a ${diff}j`;
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+}
+
+function sourceBadge(src) {
+  if (src === 'welcometothejungle') return '<span class="badge-source badge-wttj">WTTJ</span>';
+  if (src === 'hellowork')          return '<span class="badge-source badge-hw">Hellowork</span>';
+  return `<span class="badge-source">${src}</span>`;
+}
+
+function toast(msg, type = 'info', dur = 3500) {
+  const el = document.createElement('div');
+  el.className = `toast-msg ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), dur);
+}
+
+// ════════════════════════════════════════════════════════════
+// POSTHOG (analytics — optionnel)
+// ════════════════════════════════════════════════════════════
+
+function posthogCapture(event, props = {}) {
+  if (!CONFIG.POSTHOG_KEY || typeof posthog === 'undefined') return;
+  posthog.capture(event, props);
+}
+
+if (CONFIG.POSTHOG_KEY) {
+  // Charge PostHog dynamiquement si configuré
+  const s = document.createElement('script');
+  s.src = 'https://cdn-eu.posthog.com/array/latest/array.full.js';
+  s.onload = () => {
+    posthog.init(CONFIG.POSTHOG_KEY, { api_host: CONFIG.POSTHOG_HOST, capture_pageview: true });
+  };
+  document.head.appendChild(s);
+}
+
+// ════════════════════════════════════════════════════════════
+// BOOT — vérifie la session au chargement
+// ════════════════════════════════════════════════════════════
+
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    onSessionReady(session);
+  } else {
+    showAuthScreen();
+  }
+
+  // Écoute les changements d'état auth (ex: token refresh automatique)
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session && !currentSession) {
+      onSessionReady(session);
+    } else if (event === 'SIGNED_OUT') {
+      currentSession = null;
+      showAuthScreen();
+    } else if (session) {
+      currentSession = session; // mise à jour du token refreshé
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pkill -f \"uvicorn backend.main\")",
+      "Bash(grep -E \"\\\\.py$|requirements|\\\\.env\")",
+      "Bash(brew install:*)",
+      "Bash(wait)",
+      "Bash(gh auth:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: job-hunter-api
+    runtime: python
+    region: frankfurt
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false                  # À saisir dans Render Dashboard → Environment
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.11.0"
