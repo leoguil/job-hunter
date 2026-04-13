@@ -428,11 +428,17 @@ async function doLogin() {
   btn.disabled = true;
   btn.textContent = 'Connexion…';
 
+  console.log('[auth] doLogin → signInWithPassword...');
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
   btn.disabled = false;
   btn.textContent = 'Se connecter';
 
-  if (error) { err.textContent = error.message; return; }
+  if (error) {
+    console.error('[auth] doLogin error:', error.message);
+    err.textContent = error.message;
+    return;
+  }
+  console.log('[auth] doLogin success — session:', !!data.session, '— token prefix:', data.session?.access_token?.slice(0,20));
   onSessionReady(data.session);
 }
 
@@ -451,16 +457,24 @@ async function doSignup() {
   btn.disabled = true;
   btn.textContent = 'Création…';
 
+  console.log('[auth] doSignup → signUp...');
   const { data, error } = await sb.auth.signUp({ email, password: pass });
   btn.disabled = false;
   btn.textContent = 'Créer mon compte';
 
-  if (error) { err.textContent = error.message; return; }
+  if (error) {
+    console.error('[auth] doSignup error:', error.message);
+    err.textContent = error.message;
+    return;
+  }
 
+  console.log('[auth] doSignup result — session:', !!data.session, '— user:', data.user?.id, '— email_confirmed:', data.user?.email_confirmed_at);
   if (data.session) {
+    console.log('[auth] doSignup — session obtenue immédiatement (email confirm OFF)');
     onSessionReady(data.session);
   } else {
-    success.textContent = '✓ Compte créé. Vérifiez votre email pour confirmer.';
+    console.log('[auth] doSignup — pas de session (email confirm ON) → en attente confirmation');
+    success.textContent = '✓ Compte créé. Vérifiez votre email pour confirmer votre adresse.';
   }
 }
 
@@ -478,15 +492,20 @@ function hideLoading() {
 
 function showAuthScreen() {
   hideLoading();
+  // '' → retire le style inline et laisse la règle CSS s'appliquer (display:flex)
   document.getElementById('auth-screen').style.display = '';
   document.getElementById('app-screen').style.display  = 'none';
+  console.log('[auth] showAuthScreen');
 }
 
 function showAppScreen(session) {
   hideLoading();
   document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('app-screen').style.display  = '';
-  document.getElementById('user-email-badge').textContent = session.user.email;
+  // 'block' OBLIGATOIRE : la règle CSS dit display:none,
+  // donc style.display='' reviendrait à none → écran noir
+  document.getElementById('app-screen').style.display  = 'block';
+  document.getElementById('user-email-badge').textContent = session.user?.email || '';
+  console.log('[auth] showAppScreen — user:', session.user?.email);
 }
 
 function onSessionReady(session) {
@@ -508,32 +527,43 @@ function authHeaders() {
 
 async function apiFetch(path, opts = {}, retryOnWakeUp = true) {
   const url = CONFIG.API_URL + path;
+
+  // Log token pour debug (30 premiers chars suffisent)
+  const tokenSnippet = currentSession?.access_token?.slice(0, 30) || '(aucun)';
+  console.log(`[api] ${opts.method || 'GET'} ${path} — token: ${tokenSnippet}…`);
+
   let res;
   try {
     res = await fetch(url, {
       ...opts,
       headers: { ...authHeaders(), ...(opts.headers || {}) },
-      signal: AbortSignal.timeout(55000), // 55s pour laisser le temps à Render de se réveiller
+      signal: AbortSignal.timeout(55000),
     });
   } catch (err) {
-    // Réseau inaccessible ou timeout
+    console.error(`[api] fetch error on ${path}:`, err.message);
     if (retryOnWakeUp) {
-      // Affiche le bandeau "serveur se réveille"
-      document.getElementById('wakeup-banner').classList.add('visible');
-      // Réessaie une fois après 5 secondes
+      document.getElementById('wakeup-banner')?.classList.add('visible');
       await new Promise(r => setTimeout(r, 5000));
       return apiFetch(path, opts, false);
     }
-    document.getElementById('wakeup-banner').classList.remove('visible');
+    document.getElementById('wakeup-banner')?.classList.remove('visible');
     throw new Error(`Serveur inaccessible : ${err.message}`);
   }
 
-  document.getElementById('wakeup-banner').classList.remove('visible');
+  document.getElementById('wakeup-banner')?.classList.remove('visible');
+  console.log(`[api] ${path} → HTTP ${res.status}`);
 
-  // Token expiré → refresh
+  // Token expiré → tentative de refresh
   if (res.status === 401) {
-    const { data } = await sb.auth.refreshSession();
+    const body401 = await res.text().catch(() => '');
+    console.warn(`[api] 401 sur ${path} — détail backend:`, body401.slice(0, 300));
+    console.log('[api] tentative refresh session…');
+
+    const { data, error: refreshErr } = await sb.auth.refreshSession();
+    if (refreshErr) console.error('[api] refreshSession error:', refreshErr.message);
+
     if (data?.session) {
+      console.log('[api] refresh OK — retry');
       currentSession = data.session;
       const res2 = await fetch(url, {
         ...opts,
@@ -541,17 +571,20 @@ async function apiFetch(path, opts = {}, retryOnWakeUp = true) {
         signal: AbortSignal.timeout(55000),
       });
       if (!res2.ok) {
-        const body = await res2.text().catch(() => '');
-        throw new Error(`HTTP ${res2.status} : ${body.slice(0, 200)}`);
+        const b = await res2.text().catch(() => '');
+        throw new Error(`HTTP ${res2.status} : ${b.slice(0, 200)}`);
       }
       return res2.json();
     }
+
+    console.warn('[api] refresh échoué — déconnexion forcée');
     await doLogout();
-    throw new Error('Session expirée — reconnectez-vous');
+    throw new Error(`Session invalide (401 : ${body401.slice(0, 120)})`);
   }
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
+    console.error(`[api] ${path} HTTP ${res.status}:`, body.slice(0, 300));
     throw new Error(`HTTP ${res.status} : ${body.slice(0, 200)}`);
   }
   return res.json();
@@ -884,31 +917,36 @@ if (CONFIG.POSTHOG_KEY) {
 
 (async () => {
   // ① Enregistre le listener EN PREMIER pour ne pas rater les événements
-  //    déclenchés pendant l'échange du code PKCE ou du hash d'email-confirmation
+  //    déclenchés pendant l'échange du code PKCE ou du hash #access_token=…
   sb.auth.onAuthStateChange((event, session) => {
+    console.log('[auth] onAuthStateChange event:', event, '— session:', !!session, '— currentSession:', !!currentSession);
     if (event === 'SIGNED_IN' && session && !currentSession) {
-      // Connexion fraîche (email confirmé, Google OAuth, etc.)
       onSessionReady(session);
     } else if (event === 'TOKEN_REFRESHED' && session) {
-      // Refresh silencieux — on met juste à jour le token
+      console.log('[auth] token refreshed silencieusement');
       currentSession = session;
     } else if (event === 'SIGNED_OUT') {
+      console.log('[auth] SIGNED_OUT → showAuthScreen');
       currentSession = null;
       allJobs = [];
       showAuthScreen();
     }
   });
 
-  // ② Vérifie s'il existe déjà une session (aussi : traite le hash
-  //    #access_token=… que Supabase ajoute après confirmation d'email)
-  const { data: { session }, error } = await sb.auth.getSession();
+  // ② Vérifie la session stockée (gère aussi le hash d'email-confirmation)
+  console.log('[auth] boot — getSession()…');
+  const { data: { session }, error: sessionError } = await sb.auth.getSession();
+  console.log('[auth] getSession result — session:', !!session, '— error:', sessionError?.message, '— currentSession déjà set:', !!currentSession);
+
   if (session && !currentSession) {
-    // Session trouvée sans que onAuthStateChange l'ait déjà traitée
+    // Session trouvée, pas encore traitée par onAuthStateChange
     onSessionReady(session);
   } else if (!session && !currentSession) {
+    // Aucune session
     showAuthScreen();
   }
-  // Si currentSession est déjà défini → onAuthStateChange s'en est chargé
+  // Si currentSession est déjà défini → onAuthStateChange s'en est chargé avant getSession()
+  // hideLoading() a déjà été appelé dans onSessionReady ou showAuthScreen
 })();
 </script>
 </body>

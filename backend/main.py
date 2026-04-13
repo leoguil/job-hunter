@@ -3,7 +3,7 @@ import threading
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict
 
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -16,7 +16,7 @@ from .schemas import (
     SettingsOut, SettingsUpdate,
     StatsOut, SearchRunOut,
 )
-from .auth import get_current_user_id
+from .auth import get_current_user_id, validate_token
 
 logging.basicConfig(
     level=logging.INFO,
@@ -375,7 +375,49 @@ def get_history(
     return runs
 
 
-# ── Debug (dev uniquement) ────────────────────────────────────
+# ── Debug auth ───────────────────────────────────────────────
+
+@app.get("/debug/auth-check")
+def debug_auth_check(request: Request):
+    """
+    Endpoint de debug public : vérifie si le token Bearer est reçu et accepté par Supabase.
+    Appeler avec : Authorization: Bearer <access_token>
+    """
+    import os
+    supabase_url  = os.getenv("SUPABASE_URL", "")
+    supabase_key  = os.getenv("SUPABASE_PUBLISHABLE_KEY", "")
+
+    auth_header = request.headers.get("authorization", "")
+    result = {
+        "supabase_url_configured":  bool(supabase_url),
+        "supabase_key_configured":  bool(supabase_key),
+        "supabase_url":             supabase_url or "(non défini)",
+        "supabase_key_prefix":      (supabase_key[:25] + "...") if supabase_key else "(non défini)",
+        "authorization_header_present": bool(auth_header),
+        "authorization_header_format":  "Bearer ..." if auth_header.startswith("Bearer ") else auth_header[:40] or "(absent)",
+    }
+
+    if not auth_header.startswith("Bearer "):
+        result["error"] = "Header Authorization manquant ou invalide (attendu: Bearer <token>)"
+        return result
+
+    token = auth_header[7:]
+    result["token_prefix"] = token[:25] + "..."
+
+    try:
+        user_id, user_data = validate_token(token)
+        result["status"]  = "OK"
+        result["user_id"] = user_id
+        result["email"]   = user_data.get("email")
+        result["email_confirmed_at"] = user_data.get("email_confirmed_at")
+    except Exception as exc:
+        result["status"] = "FAIL"
+        result["error"]  = str(exc)
+
+    return result
+
+
+# ── Debug scrapers ────────────────────────────────────────────
 
 @app.get("/debug/scrapers")
 def debug_scrapers(

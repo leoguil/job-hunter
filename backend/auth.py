@@ -51,27 +51,23 @@ def _cache_set(token: str, user_id: str) -> None:
 
 # ── Dependency FastAPI ────────────────────────────────────────
 
-def get_current_user_id(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> str:
+def validate_token(token: str) -> tuple[str, dict]:
     """
-    Valide le Bearer token JWT auprès de Supabase Auth et retourne le user_id.
-    Injecte cette dépendance dans chaque route protégée.
+    Valide le token auprès de Supabase.
+    Retourne (user_id, debug_info).
+    Lève HTTPException si invalide.
     """
+    token_prefix = token[:20] + "..."
+
     if not _SUPABASE_URL or not _SUPABASE_PUBLISHABLE_KEY:
+        logger.error("SUPABASE_URL ou SUPABASE_PUBLISHABLE_KEY non définis")
         raise HTTPException(
             status_code=500,
             detail="SUPABASE_URL ou SUPABASE_PUBLISHABLE_KEY non configuré côté serveur",
         )
 
-    token = credentials.credentials
+    logger.info("Validating token %s against %s/auth/v1/user", token_prefix, _SUPABASE_URL)
 
-    # 1. Vérifier le cache d'abord
-    cached_id = _cache_get(token)
-    if cached_id:
-        return cached_id
-
-    # 2. Vérifier auprès de Supabase
     try:
         resp = _requests.get(
             f"{_SUPABASE_URL}/auth/v1/user",
@@ -79,22 +75,56 @@ def get_current_user_id(
                 "Authorization": f"Bearer {token}",
                 "apikey": _SUPABASE_PUBLISHABLE_KEY,
             },
-            timeout=6,
+            timeout=8,
         )
     except _requests.RequestException as exc:
-        logger.error("Supabase auth unreachable: %s", exc)
-        raise HTTPException(status_code=503, detail="Service d'authentification indisponible")
+        logger.error("Supabase auth unreachable for token %s: %s", token_prefix, exc)
+        raise HTTPException(status_code=503, detail=f"Service auth indisponible: {exc}")
+
+    logger.info("Supabase returned HTTP %s for token %s", resp.status_code, token_prefix)
 
     if resp.status_code == 401:
-        raise HTTPException(status_code=401, detail="Token invalide ou expiré")
+        body = resp.text[:300]
+        logger.warning("Supabase 401 for token %s: %s", token_prefix, body)
+        raise HTTPException(
+            status_code=401,
+            detail=f"Token invalide ou expiré (Supabase 401: {body})",
+        )
 
     if resp.status_code != 200:
-        logger.warning("Supabase auth returned %s: %s", resp.status_code, resp.text[:200])
-        raise HTTPException(status_code=401, detail="Échec de vérification du token")
+        body = resp.text[:300]
+        logger.error("Supabase unexpected %s for token %s: %s", resp.status_code, token_prefix, body)
+        raise HTTPException(
+            status_code=401,
+            detail=f"Échec vérification token (Supabase {resp.status_code}: {body})",
+        )
 
-    user_id: str = resp.json().get("id", "")
+    data = resp.json()
+    user_id: str = data.get("id", "")
     if not user_id:
-        raise HTTPException(status_code=401, detail="User ID introuvable")
+        logger.error("Supabase returned 200 but no user id: %s", str(data)[:200])
+        raise HTTPException(status_code=401, detail="User ID introuvable dans la réponse Supabase")
 
+    logger.info("Token OK — user_id: %s", user_id)
+    return user_id, data
+
+
+def get_current_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> str:
+    """
+    Valide le Bearer token JWT auprès de Supabase Auth et retourne le user_id.
+    Injecte cette dépendance dans chaque route protégée.
+    """
+    token = credentials.credentials
+
+    # 1. Cache d'abord (évite un appel réseau à chaque requête)
+    cached_id = _cache_get(token)
+    if cached_id:
+        logger.debug("Token cache hit — user_id: %s", cached_id)
+        return cached_id
+
+    # 2. Validation distante
+    user_id, _ = validate_token(token)
     _cache_set(token, user_id)
     return user_id
