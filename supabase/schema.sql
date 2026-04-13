@@ -62,7 +62,22 @@ create table if not exists search_runs (
 
 create index if not exists idx_search_runs_user on search_runs (user_id, date_run desc);
 
--- ── 5. Row Level Security ────────────────────────────────────
+-- ── 5. Migration : search_run_id sur les jobs ────────────────
+-- À exécuter une seule fois sur un projet déjà déployé.
+-- Sur un projet neuf, la colonne est créée avec la table ci-dessus.
+
+alter table jobs
+    add column if not exists search_run_id bigint
+    references search_runs(id) on delete set null;
+
+create index if not exists idx_jobs_search_run on jobs (search_run_id);
+
+-- Politique de suppression pour les jobs (utilisateurs connectés peuvent supprimer
+-- leurs propres jobs via l'API — la vérification métier est dans le backend)
+create policy if not exists "jobs_delete" on jobs
+    for delete using (auth.role() = 'authenticated');
+
+-- ── 6. Row Level Security ────────────────────────────────────
 -- (sécurité Supabase — le backend utilise la clé service qui bypass RLS)
 
 alter table job_status   enable row level security;

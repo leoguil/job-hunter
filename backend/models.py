@@ -21,6 +21,8 @@ class Job(Base):
     source           = Column(String, nullable=False)
     hash_unique      = Column(String, unique=True, nullable=False)
     date_scraping    = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    # Lien vers la recherche qui a trouvé ce job (nullable : anciens jobs n'ont pas de lien)
+    search_run_id    = Column(BigInteger, ForeignKey("search_runs.id", ondelete="SET NULL"), nullable=True, index=True)
 
     statuses = relationship("JobStatus", back_populates="job", lazy="dynamic")
 

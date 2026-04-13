@@ -160,9 +160,16 @@
     .history-table { padding: 1rem 1.5rem; }
     .history-row { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; }
     .history-row .hr-date { color: var(--muted); font-size: 0.8rem; }
-    .history-row .hr-stats { display: flex; gap: 1rem; }
+    .history-row .hr-stats { display: flex; gap: 1rem; align-items: center; }
     .hr-new { color: var(--green); font-weight: 600; }
     .hr-kw  { color: var(--muted); font-size: 0.78rem; }
+    .btn-delete-run {
+      background: none; border: 1px solid transparent; color: var(--muted);
+      border-radius: 6px; padding: 3px 7px; cursor: pointer; font-size: 0.85rem;
+      line-height: 1; transition: all 0.15s;
+    }
+    .btn-delete-run:hover:not(:disabled) { color: var(--red); border-color: var(--red); background: rgba(239,68,68,0.08); }
+    .btn-delete-run:disabled { opacity: 0.4; cursor: not-allowed; }
 
     /* ── Misc ── */
     .scrape-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0.6rem 1.5rem; display: none; align-items: center; gap: 0.75rem; font-size: 0.85rem; color: var(--accent); }
@@ -834,7 +841,7 @@ async function loadHistory() {
       return;
     }
     el.innerHTML = runs.map(r => `
-      <div class="history-row">
+      <div class="history-row" id="run-row-${r.id}">
         <div>
           <span class="hr-date">${new Date(r.date_run).toLocaleString('fr-FR')}</span>
           ${r.mots_cles ? `<div class="hr-kw">${r.mots_cles.join(', ')}</div>` : ''}
@@ -842,9 +849,49 @@ async function loadHistory() {
         <div class="hr-stats">
           <span>${r.nombre_resultats} offres trouvées</span>
           <span class="hr-new">+${r.nouveaux} nouvelles</span>
+          <button
+            class="btn-delete-run"
+            onclick="deleteSearchRun(${r.id}, ${r.nouveaux})"
+            title="Supprimer cette recherche et ses offres"
+          ><i class="bi bi-trash3"></i></button>
         </div>
       </div>`).join('');
   } catch {}
+}
+
+async function deleteSearchRun(runId, nouveaux) {
+  const msg = nouveaux > 0
+    ? `Supprimer cette recherche et ses ${nouveaux} offre${nouveaux > 1 ? 's' : ''} associée${nouveaux > 1 ? 's' : ''} ?\n\nLes offres marquées par d'autres utilisateurs seront conservées.`
+    : 'Supprimer cette recherche de l\'historique ?';
+
+  if (!confirm(msg)) return;
+
+  const btn = document.querySelector(`#run-row-${runId} .btn-delete-run`);
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i>'; }
+
+  try {
+    const result = await apiFetch(`/api/search-runs/${runId}`, { method: 'DELETE' });
+    // Retire la ligne de l'historique
+    document.getElementById(`run-row-${runId}`)?.remove();
+    // Message de confirmation
+    const msg2 = result.jobs_deleted > 0
+      ? `Recherche supprimée — ${result.jobs_deleted} offre${result.jobs_deleted > 1 ? 's' : ''} retirée${result.jobs_deleted > 1 ? 's' : ''}`
+      : 'Recherche supprimée de l\'historique';
+    toast(msg2, 'success');
+    // Si des jobs ont été supprimés → recharge la liste des offres et les stats
+    if (result.jobs_deleted > 0) {
+      await Promise.all([loadJobs(), loadStats()]);
+    }
+    // Si l'historique est maintenant vide, affiche le message vide
+    const remaining = document.querySelectorAll('#history-list .history-row');
+    if (remaining.length === 0) {
+      document.getElementById('history-list').innerHTML =
+        '<div class="empty-state"><i class="bi bi-clock-history"></i>Aucune recherche effectuée.</div>';
+    }
+  } catch (e) {
+    toast(`Erreur suppression : ${e.message}`, 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-trash3"></i>'; }
+  }
 }
 
 // ════════════════════════════════════════════════════════════

@@ -100,7 +100,18 @@ def _run_scrape(user_id: str):
                 if not any(kw in f"{j['titre']} {j.get('description','')}".lower() for kw in exclus)
             ]
 
-        # Sauvegarde (dédupliqué)
+        # ── Crée le SearchRun EN PREMIER pour obtenir son ID ──────
+        # Cela permet de lier chaque nouveau job à ce run (search_run_id).
+        run = SearchRun(
+            user_id=user_id,
+            nombre_resultats=0,   # sera mis à jour après
+            nouveaux=0,
+            mots_cles=mots_cles,
+        )
+        db.add(run)
+        db.flush()   # génère run.id sans committer la transaction
+
+        # ── Sauvegarde les jobs (dédupliqués) ──────────────────────
         new_count = 0
         for jd in all_jobs:
             exists = (
@@ -120,19 +131,13 @@ def _run_scrape(user_id: str):
                 source=jd["source"],
                 hash_unique=jd["hash_unique"],
                 date_scraping=datetime.now(timezone.utc),
+                search_run_id=run.id,   # ← lien vers ce run
             ))
             new_count += 1
 
-        db.commit()
-
-        # Historique
-        run = SearchRun(
-            user_id=user_id,
-            nombre_resultats=len(all_jobs),
-            nouveaux=new_count,
-            mots_cles=mots_cles,
-        )
-        db.add(run)
+        # Met à jour les totaux du run maintenant qu'on sait combien
+        run.nombre_resultats = len(all_jobs)
+        run.nouveaux = new_count
         db.commit()
 
         result = {
@@ -373,6 +378,71 @@ def get_history(
         .all()
     )
     return runs
+
+
+# ── Suppression d'une recherche ──────────────────────────────
+
+@app.delete("/api/search-runs/{run_id}")
+def delete_search_run(
+    run_id: int,
+    user_id: str = Depends(get_current_user_id),
+    db: Session  = Depends(get_db),
+):
+    """
+    Supprime une recherche de l'historique et les offres associées.
+
+    Logique de suppression des jobs :
+    - Un job lié à ce run est supprimé si aucun AUTRE utilisateur n'a de statut dessus.
+    - Si un autre utilisateur l'a marqué (postulé, à traiter…), le job est conservé
+      mais le statut de l'utilisateur courant est retiré.
+    - Les jobs sans search_run_id (anciens jobs) ne sont jamais touchés.
+    """
+    # Vérifie que la recherche existe et appartient bien à cet utilisateur
+    run = db.query(SearchRun).get(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Recherche introuvable")
+    if run.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Non autorisé")
+
+    # Jobs liés à ce run (seulement ceux créés par ce run)
+    linked_jobs = db.query(Job).filter(Job.search_run_id == run_id).all()
+
+    jobs_deleted  = 0
+    jobs_kept     = 0
+
+    for job in linked_jobs:
+        other_status = db.query(JobStatus).filter(
+            JobStatus.job_id  == job.id,
+            JobStatus.user_id != user_id,
+        ).first()
+
+        if other_status is None:
+            # Aucun autre utilisateur n'a de statut → suppression complète
+            # (job_status de l'utilisateur courant sera cascadé via ON DELETE CASCADE)
+            db.delete(job)
+            jobs_deleted += 1
+        else:
+            # Un autre utilisateur utilise ce job → on garde le job
+            # mais on retire le statut de l'utilisateur courant
+            db.query(JobStatus).filter(
+                JobStatus.job_id  == job.id,
+                JobStatus.user_id == user_id,
+            ).delete(synchronize_session=False)
+            jobs_kept += 1
+
+    # Supprime la recherche elle-même
+    db.delete(run)
+    db.commit()
+
+    logger.info(
+        "[%s] delete_search_run run_id=%s → %d jobs supprimés, %d conservés (autre user)",
+        user_id[:8], run_id, jobs_deleted, jobs_kept,
+    )
+    return {
+        "deleted_run_id": run_id,
+        "jobs_deleted":   jobs_deleted,
+        "jobs_kept":      jobs_kept,
+    }
 
 
 # ── Debug auth ───────────────────────────────────────────────
