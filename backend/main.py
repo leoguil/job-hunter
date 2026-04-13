@@ -7,7 +7,7 @@ from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, text, inspect as sa_inspect
 
 from .database import engine, get_db, Base
 from .models import Job, JobStatus, UserSettings, SearchRun
@@ -26,6 +26,62 @@ logger = logging.getLogger(__name__)
 
 # Crée les tables si elles n'existent pas (utile pour SQLite en dev local)
 Base.metadata.create_all(bind=engine)
+
+
+def _apply_migrations() -> None:
+    """
+    Applique les migrations de colonnes que create_all ne gère pas
+    (create_all ne modifie jamais une table existante).
+
+    Actuellement : ajout de jobs.search_run_id si absente.
+    Appelé une seule fois au démarrage, non-bloquant en cas d'erreur.
+    """
+    _logger = logging.getLogger(__name__ + ".migrations")
+    try:
+        insp = sa_inspect(engine)
+        if not insp.has_table("jobs"):
+            _logger.info("Migration: table 'jobs' absente, create_all s'en charge")
+            return
+
+        existing_cols = {c["name"] for c in insp.get_columns("jobs")}
+
+        if "search_run_id" in existing_cols:
+            _logger.info("Migration check OK: jobs.search_run_id déjà présente")
+            return
+
+        _logger.info("Migration: ajout de la colonne jobs.search_run_id…")
+        from .database import DATABASE_URL as _db_url
+        is_pg = _db_url.startswith(("postgresql", "postgres"))
+
+        with engine.connect() as conn:
+            if is_pg:
+                # PostgreSQL : FK + index
+                conn.execute(text(
+                    "ALTER TABLE jobs "
+                    "ADD COLUMN search_run_id BIGINT "
+                    "REFERENCES search_runs(id) ON DELETE SET NULL"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS idx_jobs_search_run "
+                    "ON jobs (search_run_id)"
+                ))
+            else:
+                # SQLite (dev local) : pas de FK inline sur ALTER TABLE
+                conn.execute(text(
+                    "ALTER TABLE jobs ADD COLUMN search_run_id INTEGER"
+                ))
+            conn.commit()
+
+        _logger.info("Migration OK: jobs.search_run_id ajoutée avec succès")
+
+    except Exception as exc:
+        # Non-bloquant : l'app démarre même si la migration échoue
+        logging.getLogger(__name__ + ".migrations").error(
+            "Migration échouée (non bloquant): %s", exc, exc_info=True
+        )
+
+
+_apply_migrations()
 
 app = FastAPI(title="Job Hunter API", version="2.0.0")
 
@@ -397,12 +453,31 @@ def delete_search_run(
       mais le statut de l'utilisateur courant est retiré.
     - Les jobs sans search_run_id (anciens jobs) ne sont jamais touchés.
     """
-    # Vérifie que la recherche existe et appartient bien à cet utilisateur
     run = db.query(SearchRun).get(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Recherche introuvable")
-    if run.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Non autorisé")
+
+    # Normalise en str minuscule des deux côtés.
+    # Nécessaire car psycopg2 peut retourner un objet uuid.UUID pour une colonne
+    # PostgreSQL de type uuid, même si SQLAlchemy la déclare Column(String).
+    # uuid.UUID("abc...") != "abc..." → 403 systématique sans cette normalisation.
+    run_owner   = str(run.user_id).lower().strip()
+    current_uid = str(user_id).lower().strip()
+
+    logger.info(
+        "delete_search_run run_id=%s | run.user_id=%r | current user_id=%r | match=%s",
+        run_id, run_owner, current_uid, run_owner == current_uid,
+    )
+
+    if run_owner != current_uid:
+        logger.warning(
+            "delete_search_run REFUSE: run_id=%s appartient à %r, demande par %r",
+            run_id, run_owner, current_uid,
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Non autorisé : cette recherche ne vous appartient pas",
+        )
 
     # Jobs liés à ce run (seulement ceux créés par ce run)
     linked_jobs = db.query(Job).filter(Job.search_run_id == run_id).all()
