@@ -3,17 +3,32 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Job Hunter</title>
+  <title>First Apply — Postule avant tout le monde</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;700;900&family=Manrope:wght@400;500;700&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
   <style>
     :root {
-      --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a; --border: #2d3148;
-      --accent: #6c63ff; --accent-hover: #8b83ff; --text: #e2e8f0; --muted: #8892a4;
-      --green: #22c55e; --blue: #3b82f6; --red: #ef4444; --yellow: #f59e0b;
+      --bg:           #060e20;
+      --surface:      #0f1930;
+      --surface2:     #141f38;
+      --border:       rgba(64,72,93,0.45);
+      --accent:       #ba9eff;
+      --accent-hover: #a27cff;
+      --cyan:         #3adffa;
+      --text:         #dee5ff;
+      --muted:        #a3aac4;
+      --green:        #22c55e;
+      --blue:         #3adffa;
+      --red:          #ff6e84;
+      --yellow:       #f59e0b;
+      /* Fonts */
+      --font-headline: "Lexend", -apple-system, sans-serif;
+      --font-body:     "Manrope", -apple-system, sans-serif;
+      --font-label:    "Space Grotesk", -apple-system, sans-serif;
     }
     * { box-sizing: border-box; }
-    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; margin: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font-body); min-height: 100vh; margin: 0; }
 
     /* ── Auth screen ── */
     #auth-screen {
@@ -24,7 +39,7 @@
       background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
       padding: 2.5rem; width: 400px; max-width: 95vw;
     }
-    .auth-logo { font-size: 1.8rem; font-weight: 800; color: var(--accent); text-align: center; margin-bottom: 0.25rem; }
+    .auth-logo { font-family: var(--font-headline); font-size: 1.8rem; font-weight: 900; letter-spacing: -0.04em; color: var(--accent); text-align: center; margin-bottom: 0.25rem; }
     .auth-sub  { color: var(--muted); font-size: 0.875rem; text-align: center; margin-bottom: 2rem; }
     .auth-tabs { display: flex; gap: 0; margin-bottom: 1.75rem; background: var(--surface2); border-radius: 8px; padding: 4px; }
     .auth-tab  {
@@ -53,22 +68,26 @@
 
     /* ── Navbar ── */
     .navbar {
-      background: var(--surface); border-bottom: 1px solid var(--border);
+      background: rgba(6,14,32,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
       padding: 0.75rem 1.5rem; display: flex; align-items: center; justify-content: space-between;
       position: sticky; top: 0; z-index: 100;
     }
-    .navbar-brand { font-size: 1.15rem; font-weight: 700; color: var(--accent); text-decoration: none; display: flex; align-items: center; gap: 0.5rem; }
+    .navbar-brand { font-family: var(--font-headline); font-size: 1.1rem; font-weight: 900; letter-spacing: -0.03em; color: var(--accent); text-decoration: none; display: flex; align-items: center; gap: 0.4rem; }
+    .navbar-live { display: flex; align-items: center; gap: 5px; }
+    .navbar-live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 7px rgba(58,223,250,0.8); flex-shrink: 0; }
+    .navbar-live-txt { font-family: var(--font-label); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--cyan); }
     .nav-right { display: flex; align-items: center; gap: 0.75rem; }
-    .user-badge { font-size: 0.78rem; color: var(--muted); }
+    .user-badge { font-family: var(--font-label); font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 
     /* ── Stats ── */
-    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; padding: 1.25rem 1.5rem; }
-    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; }
-    .stat-card .label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-    .stat-card .value { font-size: 1.8rem; font-weight: 700; }
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; padding: 0; background: var(--border); }
+    .stat-card { background: var(--bg); padding: 1.1rem 1.5rem; }
+    .stat-card .label { font-family: var(--font-label); font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.3rem; }
+    .stat-card .value { font-family: var(--font-headline); font-size: 2rem; font-weight: 900; letter-spacing: -0.03em; line-height: 1; }
     .stat-card.total .value { color: var(--accent); }
-    .stat-card.a-traiter .value { color: var(--yellow); }
-    .stat-card.postule .value { color: var(--blue); }
+    .stat-card.a-traiter .value { color: var(--cyan); }
+    .stat-card.postule .value { color: var(--green); }
     .stat-card.ignore .value { color: var(--muted); }
 
     /* ── Filters ── */
@@ -106,13 +125,14 @@
     /* ── Status buttons ── */
     .status-btns { display: flex; gap: 4px; }
     .btn-status {
-      font-size: 0.72rem; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--border);
+      font-family: var(--font-label); font-size: 0.68rem; letter-spacing: 0.04em;
+      padding: 3px 9px; border-radius: 3px; border: 1px solid var(--border);
       background: var(--surface2); color: var(--muted); cursor: pointer; white-space: nowrap; transition: all 0.15s;
     }
     .btn-status:hover { border-color: var(--accent); color: var(--text); }
-    .btn-status.active-traiter { background: #3d2a00; color: var(--yellow); border-color: var(--yellow); }
-    .btn-status.active-postule { background: #0d1f3c; color: var(--blue);   border-color: var(--blue); }
-    .btn-status.active-ignore  { background: #1a1a1a; color: var(--muted);  border-color: var(--muted); }
+    .btn-status.active-traiter { background: rgba(186,158,255,0.15); color: var(--accent);  border-color: rgba(186,158,255,0.4); }
+    .btn-status.active-postule { background: rgba(34,197,94,0.12);   color: var(--green);   border-color: rgba(34,197,94,0.4); }
+    .btn-status.active-ignore  { background: rgba(163,170,196,0.08); color: var(--muted);   border-color: rgba(163,170,196,0.25); }
 
     /* ── Section tab counts ── */
     .tab-count {
@@ -139,18 +159,25 @@
 
     /* ── Buttons ── */
     .btn-primary-custom {
-      background: var(--accent); color: #fff; border: none; border-radius: 8px;
-      padding: 0.5rem 1.1rem; font-size: 0.875rem; font-weight: 600; cursor: pointer;
-      display: flex; align-items: center; gap: 0.4rem; transition: background 0.15s;
+      background: var(--cyan); color: #004b56;
+      font-family: var(--font-headline); font-weight: 900; letter-spacing: -0.02em;
+      border: none; border-radius: 4px;
+      padding: 0.5rem 1.1rem; font-size: 0.875rem; cursor: pointer;
+      display: flex; align-items: center; gap: 0.4rem;
+      box-shadow: 0 0 20px -6px rgba(58,223,250,0.45);
+      transition: transform 0.15s, box-shadow 0.15s;
     }
-    .btn-primary-custom:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-primary-custom:hover:not(:disabled) { transform: scale(1.03); box-shadow: 0 0 28px -4px rgba(58,223,250,0.55); }
+    .btn-primary-custom:active:not(:disabled) { transform: scale(0.97); }
     .btn-primary-custom:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-outline-custom {
-      background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 8px;
-      padding: 0.5rem 1rem; font-size: 0.875rem; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; transition: all 0.15s;
+      background: rgba(15,25,48,0.7); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 4px;
+      padding: 0.5rem 1rem; font-size: 0.875rem; cursor: pointer;
+      display: flex; align-items: center; gap: 0.4rem; transition: all 0.15s;
     }
-    .btn-outline-custom:hover { color: var(--text); border-color: var(--accent); }
-    .btn-ghost { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.82rem; padding: 0.4rem 0.6rem; border-radius: 6px; }
+    .btn-outline-custom:hover { color: var(--text); border-color: rgba(186,158,255,0.5); }
+    .btn-ghost { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.82rem; padding: 0.4rem 0.6rem; border-radius: 4px; }
     .btn-ghost:hover { color: var(--red); background: rgba(239,68,68,0.1); }
 
     /* ── Toast ── */
@@ -174,8 +201,8 @@
 
     /* ── Tabs (History / Jobs) ── */
     .tab-bar { display: flex; gap: 0; padding: 0 1.5rem; border-bottom: 1px solid var(--border); background: var(--surface); }
-    .tab-btn { padding: 0.75rem 1.25rem; font-size: 0.875rem; color: var(--muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; transition: all 0.15s; }
-    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn { font-family: var(--font-label); padding: 0.75rem 1.25rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
+    .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
@@ -210,7 +237,7 @@
       position: fixed; inset: 0; background: var(--bg); z-index: 9000;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem;
     }
-    #loading-screen .logo { font-size: 1.8rem; font-weight: 800; color: var(--accent); }
+    #loading-screen .logo { font-family: var(--font-headline); font-size: 1.8rem; font-weight: 900; letter-spacing: -0.03em; color: var(--accent); }
     #loading-screen .sub  { font-size: 0.875rem; color: var(--muted); }
     /* Wake-up banner */
     .wakeup-banner {
@@ -238,15 +265,15 @@
 ════════════════════════════════════════════════════════════ -->
 <!-- ── Loading Screen (shown while checking auth) ── -->
 <div id="loading-screen">
-  <div class="logo"><i class="bi bi-crosshair2"></i> Job Hunter</div>
+  <div class="logo">⚡ First Apply</div>
   <i class="bi bi-arrow-repeat spin" style="font-size:1.5rem;color:var(--accent);"></i>
   <div class="sub">Chargement…</div>
 </div>
 
 <div id="auth-screen" style="display:none;">
   <div class="auth-card">
-    <div class="auth-logo"><i class="bi bi-crosshair2"></i> Job Hunter</div>
-    <div class="auth-sub">Trouvez votre prochain poste</div>
+    <div class="auth-logo">⚡ First Apply</div>
+    <div class="auth-sub">Postule avant tout le monde</div>
 
     <div class="auth-tabs">
       <div class="auth-tab active" id="tab-login"  onclick="switchTab('login')">Connexion</div>
@@ -307,13 +334,17 @@
   <!-- Navbar -->
   <nav class="navbar">
     <a class="navbar-brand" href="#">
-      <i class="bi bi-crosshair2"></i> Job Hunter
+      ⚡ First Apply
+      <div class="navbar-live" id="navbar-live" style="display:none;">
+        <span class="navbar-live-dot"></span>
+        <span class="navbar-live-txt">Scan actif</span>
+      </div>
     </a>
     <div class="nav-right">
       <span class="user-badge" id="user-email-badge"></span>
-      <span id="last-run-label" style="font-size:0.78rem;color:var(--muted);"></span>
+      <span id="last-run-label" style="font-family:var(--font-label);font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;"></span>
       <button class="btn-outline-custom" onclick="openSettings()"><i class="bi bi-gear"></i> Paramètres</button>
-      <button class="btn-primary-custom" id="btn-scrape" onclick="startScrape()"><i class="bi bi-search"></i> Lancer la recherche</button>
+      <button class="btn-primary-custom" id="btn-scrape" onclick="startScrape()"><i class="bi bi-search"></i> Scanner</button>
       <button class="btn-ghost" onclick="doLogout()" title="Déconnexion"><i class="bi bi-box-arrow-right"></i></button>
     </div>
   </nav>
@@ -332,19 +363,19 @@
 
   <!-- Stats -->
   <div class="stats-row">
-    <div class="stat-card total">     <span class="label">Total offres</span><span class="value" id="stat-total">—</span></div>
-    <div class="stat-card a-traiter"> <span class="label">À traiter</span>   <span class="value" id="stat-traiter">—</span></div>
-    <div class="stat-card postule">   <span class="label">Postulé</span>     <span class="value" id="stat-postule">—</span></div>
-    <div class="stat-card ignore">    <span class="label">Ignoré</span>      <span class="value" id="stat-ignore">—</span></div>
+    <div class="stat-card total">     <span class="label">Opportunités</span><span class="value" id="stat-total">—</span></div>
+    <div class="stat-card a-traiter"> <span class="label">À postuler</span>  <span class="value" id="stat-traiter">—</span></div>
+    <div class="stat-card postule">   <span class="label">Envoyées</span>    <span class="value" id="stat-postule">—</span></div>
+    <div class="stat-card ignore">    <span class="label">Passées</span>     <span class="value" id="stat-ignore">—</span></div>
   </div>
 
   <!-- Section tabs -->
   <div class="tab-bar" id="section-tabbar">
-    <button class="tab-btn active" id="stab-offres"      onclick="switchSection('offres')">Offres<span class="tab-count" id="cnt-offres"></span></button>
-    <button class="tab-btn"        id="stab-traiter"     onclick="switchSection('traiter')">À traiter<span class="tab-count" id="cnt-traiter"></span></button>
-    <button class="tab-btn"        id="stab-postule"     onclick="switchSection('postule')">Postulé<span class="tab-count" id="cnt-postule"></span></button>
-    <button class="tab-btn"        id="stab-ignore"      onclick="switchSection('ignore')">Ignoré<span class="tab-count" id="cnt-ignore"></span></button>
-    <button class="tab-btn"        id="stab-historique"  onclick="switchSection('historique')">Historique</button>
+    <button class="tab-btn active" id="stab-offres"     onclick="switchSection('offres')">Flux live<span class="tab-count" id="cnt-offres"></span></button>
+    <button class="tab-btn"        id="stab-traiter"    onclick="switchSection('traiter')">À postuler<span class="tab-count" id="cnt-traiter"></span></button>
+    <button class="tab-btn"        id="stab-postule"    onclick="switchSection('postule')">Envoyés<span class="tab-count" id="cnt-postule"></span></button>
+    <button class="tab-btn"        id="stab-ignore"     onclick="switchSection('ignore')">Passés<span class="tab-count" id="cnt-ignore"></span></button>
+    <button class="tab-btn"        id="stab-historique" onclick="switchSection('historique')">Scans</button>
   </div>
 
   <!-- ── Panel: Jobs (shared by Offres / À traiter / Postulé / Ignoré) ── -->
@@ -913,10 +944,10 @@ function renderTable(jobs) {
   const tbody = document.getElementById('jobs-table-body');
 
   const emptyMsgs = {
-    offres:  'Aucune offre sans statut. Lancez une recherche ou consultez les autres sections.',
-    traiter: 'Aucune offre à traiter.',
-    postule: 'Aucune candidature enregistrée.',
-    ignore:  'Aucune offre ignorée.',
+    offres:  'Aucune offre dans le flux. Lance un scan pour voir les opportunités du moment.',
+    traiter: 'Aucune offre en attente.',
+    postule: 'Aucune candidature envoyée.',
+    ignore:  'Aucune offre passée.',
   };
   if (!jobs.length) {
     const msg = emptyMsgs[activeSection] || 'Aucune offre.';
@@ -939,9 +970,9 @@ function renderTable(jobs) {
       <td class="hide-mobile">${sourceBadge(job.source)}</td>
       <td>
         <div class="status-btns">
-          <button class="btn-status ${s==='a_traiter'?'active-traiter':''}" onclick="setStatus(${job.id},'a_traiter')">📋 À traiter</button>
-          <button class="btn-status ${s==='postule'   ?'active-postule':''}" onclick="setStatus(${job.id},'postule')"  >✅ Postulé</button>
-          <button class="btn-status ${s==='ignore'    ?'active-ignore' :''}" onclick="setStatus(${job.id},'ignore')"   >✗ Ignorer</button>
+          <button class="btn-status ${s==='a_traiter'?'active-traiter':''}" onclick="setStatus(${job.id},'a_traiter')">⚡ Postuler</button>
+          <button class="btn-status ${s==='postule'   ?'active-postule':''}" onclick="setStatus(${job.id},'postule')"  >✓ Envoyé</button>
+          <button class="btn-status ${s==='ignore'    ?'active-ignore' :''}" onclick="setStatus(${job.id},'ignore')"   >× Passer</button>
         </div>
       </td>
     </tr>`;
@@ -960,7 +991,7 @@ async function setStatus(jobId, statut) {
     updateSectionCounts();
     applyFilters();
     loadStats();
-    const labels = { a_traiter: 'À traiter', postule: 'Postulé ✅', ignore: 'Ignoré' };
+    const labels = { a_traiter: '⚡ À postuler', postule: '✓ Candidature envoyée', ignore: '× Passé' };
     toast(`${labels[statut]}`, 'success', 2000);
     posthogCapture('status_changed', { statut });
   } catch {
@@ -992,15 +1023,17 @@ async function startScrape() {
 function setScrapeBtnRunning() {
   const btn = document.getElementById('btn-scrape');
   btn.disabled = true;
-  btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> En cours…';
+  btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Scan…';
   document.getElementById('scrape-bar').classList.add('visible');
+  document.getElementById('navbar-live').style.display = 'flex';
 }
 
 function resetScrapeBtn() {
   const btn = document.getElementById('btn-scrape');
   btn.disabled = false;
-  btn.innerHTML = '<i class="bi bi-search"></i> Lancer la recherche';
+  btn.innerHTML = '<i class="bi bi-search"></i> Scanner';
   document.getElementById('scrape-bar').classList.remove('visible');
+  document.getElementById('navbar-live').style.display = 'none';
 }
 
 function pollScrapeStatus() {

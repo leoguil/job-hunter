@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>First Apply — Postule avant tout le monde</title>
+<meta name="description" content="First Apply scanne les offres en temps réel. Tu postules avant la pile. Les 10 premiers candidats ont 3× plus d'entretiens." />
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;700;900&family=Manrope:wght@400;500;700&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "surface":                "#060e20",
+          "surface-dim":            "#060e20",
+          "surface-container-low":  "#091328",
+          "surface-container":      "#0f1930",
+          "surface-container-high": "#141f38",
+          "surface-variant":        "#192540",
+          "surface-bright":         "#1f2b49",
+          "on-surface":             "#dee5ff",
+          "on-surface-variant":     "#a3aac4",
+          "primary":                "#ba9eff",
+          "primary-dim":            "#8455ef",
+          "on-primary":             "#39008c",
+          "secondary":              "#3adffa",
+          "secondary-dim":          "#1ad0eb",
+          "on-secondary":           "#004b56",
+          "outline":                "#6d758c",
+          "outline-variant":        "#40485d",
+          "error":                  "#ff6e84",
+        },
+        fontFamily: {
+          headline: ["Lexend", "sans-serif"],
+          body:     ["Manrope", "sans-serif"],
+          label:    ["Space Grotesk", "sans-serif"],
+        },
+        borderRadius: {
+          DEFAULT: "0.125rem",
+          lg:  "0.25rem",
+          xl:  "0.5rem",
+          full:"0.75rem",
+        },
+      },
+    },
+  };
+</script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: "Manrope", sans-serif; }
+
+  .glass { background: rgba(15,25,48,0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+  .hero-glow { background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(186,158,255,0.13) 0%, rgba(58,223,250,0.05) 50%, transparent 100%); }
+
+  /* Ticker */
+  .ticker-wrap { overflow: hidden; white-space: nowrap; }
+  .ticker-inner { display: inline-block; animation: ticker 28s linear infinite; }
+  .ticker-inner:hover { animation-play-state: paused; }
+  @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+  /* Pulse dot */
+  .pulse-ring { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+  .pulse-ring::after {
+    content: ''; position: absolute; width: 14px; height: 14px;
+    border-radius: 50%; border: 2px solid #3adffa;
+    animation: pulse-ring 1.8s ease-out infinite; opacity: 0;
+  }
+  @keyframes pulse-ring { 0% { transform: scale(0.5); opacity: 0.7; } 100% { transform: scale(2); opacity: 0; } }
+
+  /* App mockup */
+  .mockup-shell {
+    background: rgba(9,19,40,0.95);
+    border: 1px solid rgba(64,72,93,0.5);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 40px 80px -20px rgba(0,0,0,0.6), 0 0 0 1px rgba(186,158,255,0.05);
+  }
+  .mockup-topbar {
+    background: rgba(15,25,48,0.9);
+    padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid rgba(64,72,93,0.3);
+  }
+  .mockup-brand { font-family: "Lexend"; font-weight: 900; font-size: 13px; color: #ba9eff; letter-spacing: -0.02em; }
+  .mockup-live { display: flex; align-items: center; gap: 6px; font-family: "Space Grotesk"; font-size: 10px; color: #3adffa; text-transform: uppercase; letter-spacing: 0.15em; }
+  .dot-live { width: 7px; height: 7px; border-radius: 50%; background: #3adffa; box-shadow: 0 0 8px rgba(58,223,250,0.8); }
+  .mockup-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: rgba(64,72,93,0.2); }
+  .mockup-stat { padding: 10px 14px; background: rgba(15,25,48,0.6); }
+  .mockup-stat-val { font-family: "Lexend"; font-weight: 900; font-size: 20px; color: #dee5ff; }
+  .mockup-stat-lbl { font-family: "Space Grotesk"; font-size: 9px; color: #a3aac4; text-transform: uppercase; letter-spacing: 0.12em; margin-top: 2px; }
+  .mockup-tabs { display: flex; border-bottom: 1px solid rgba(64,72,93,0.3); }
+  .mockup-tab { padding: 9px 14px; font-family: "Space Grotesk"; font-size: 10px; color: #a3aac4; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; white-space: nowrap; }
+  .mockup-tab.active { color: #3adffa; border-bottom: 2px solid #3adffa; }
+  .mockup-tab .cnt { background: rgba(58,223,250,0.15); color: #3adffa; padding: 1px 6px; border-radius: 10px; font-size: 9px; margin-left: 4px; }
+  .mockup-row { padding: 10px 14px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(64,72,93,0.15); transition: background 0.15s; }
+  .mockup-row:hover { background: rgba(25,37,64,0.5); }
+  .mockup-badge-new { font-family: "Space Grotesk"; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+  .badge-fresh { background: rgba(58,223,250,0.15); color: #3adffa; border: 1px solid rgba(58,223,250,0.3); }
+  .badge-old   { background: rgba(163,170,196,0.1); color: #a3aac4; border: 1px solid rgba(163,170,196,0.2); }
+  .mockup-job-title { font-family: "Lexend"; font-weight: 700; font-size: 12px; color: #dee5ff; }
+  .mockup-job-meta  { font-family: "Space Grotesk"; font-size: 9px; color: #a3aac4; margin-top: 2px; }
+  .mockup-btn { font-family: "Space Grotesk"; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 4px; white-space: nowrap; cursor: pointer; border: none; }
+  .btn-apply  { background: rgba(58,223,250,0.2); color: #3adffa; border: 1px solid rgba(58,223,250,0.4); }
+  .btn-sent   { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
+  .btn-skip   { background: transparent; color: #a3aac4; border: 1px solid rgba(64,72,93,0.4); }
+  .mockup-job-wrap { flex: 1; min-width: 0; }
+
+  /* Glow buttons */
+  .btn-primary-glow {
+    background: #3adffa; color: #004b56;
+    font-family: "Lexend"; font-weight: 900;
+    box-shadow: 0 0 30px -5px rgba(58,223,250,0.45);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .btn-primary-glow:hover { transform: scale(1.04); box-shadow: 0 0 45px -5px rgba(58,223,250,0.6); }
+  .btn-primary-glow:active { transform: scale(0.97); }
+
+  .btn-glass {
+    background: rgba(15,25,48,0.6); backdrop-filter: blur(12px);
+    border: 1px solid rgba(64,72,93,0.5); color: #dee5ff;
+    font-family: "Lexend"; font-weight: 900;
+    transition: background 0.2s;
+  }
+  .btn-glass:hover { background: rgba(31,43,73,0.8); }
+
+  /* Steps */
+  .step-card { border-bottom: 2px solid transparent; transition: border-color 0.4s, transform 0.3s; }
+  .step-card:hover { border-color: #3adffa; transform: translateY(-3px); }
+
+  /* Stats counter */
+  .stat-big { font-family: "Lexend"; font-weight: 900; font-size: clamp(2.5rem,5vw,4rem); background: linear-gradient(135deg, #ba9eff 0%, #3adffa 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+  /* Feature cards */
+  .feat-card { background: rgba(15,25,48,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(64,72,93,0.15); border-radius: 12px; transition: background 0.2s; }
+  .feat-card:hover { background: rgba(31,43,73,0.7); }
+
+  /* Ticker items */
+  .ticker-item { display: inline-flex; align-items: center; gap: 8px; margin-right: 48px; }
+</style>
+</head>
+<body class="bg-surface text-on-surface font-body overflow-x-hidden">
+
+<!-- ══════════════════════════════════════════
+     NAV
+══════════════════════════════════════════ -->
+<nav class="fixed top-0 w-full z-50" style="background:rgba(6,14,32,0.7);backdrop-filter:blur(24px);border-bottom:1px solid rgba(64,72,93,0.2);">
+  <div class="flex justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto">
+    <div class="text-xl font-black tracking-tighter text-white font-headline">First Apply</div>
+    <div class="hidden md:flex items-center gap-8">
+      <a href="#how" class="font-label text-xs uppercase tracking-widest text-on-surface-variant hover:text-secondary transition-colors">Comment ça marche</a>
+      <a href="#why" class="font-label text-xs uppercase tracking-widest text-on-surface-variant hover:text-secondary transition-colors">Pourquoi</a>
+      <a href="#stats" class="font-label text-xs uppercase tracking-widest text-on-surface-variant hover:text-secondary transition-colors">Résultats</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="/" class="font-label text-xs uppercase tracking-widest px-4 py-2 text-on-surface-variant hover:text-secondary transition-colors hidden sm:block">Se connecter</a>
+      <a href="/" class="btn-primary-glow px-6 py-2.5 text-sm tracking-tighter">Commencer gratuitement</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════
+     HERO
+══════════════════════════════════════════ -->
+<section class="relative min-h-screen flex flex-col items-center justify-center pt-24 pb-16 px-6 hero-glow">
+  <!-- Background glow orbs -->
+  <div class="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-5 pointer-events-none" style="background:radial-gradient(circle,#ba9eff,transparent);filter:blur(80px);"></div>
+  <div class="absolute bottom-1/3 right-1/4 w-80 h-80 rounded-full opacity-5 pointer-events-none" style="background:radial-gradient(circle,#3adffa,transparent);filter:blur(80px);"></div>
+
+  <div class="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
+    <!-- Left: copy -->
+    <div>
+      <!-- Live badge -->
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8" style="background:rgba(20,31,56,0.8);border:1px solid rgba(58,223,250,0.25);">
+        <div class="pulse-ring">
+          <span class="dot-live"></span>
+        </div>
+        <span class="font-label text-xs uppercase tracking-widest text-secondary">Scan actif — offres en temps réel</span>
+      </div>
+
+      <h1 class="font-headline font-black tracking-tighter text-white leading-[0.88] mb-8" style="font-size:clamp(3.2rem,8vw,6.5rem);">
+        Postule<br/>
+        <span class="text-primary italic">avant</span><br/>
+        tout le monde
+      </h1>
+
+      <p class="text-xl text-on-surface-variant max-w-lg mb-10 leading-relaxed" style="font-size:clamp(1rem,2vw,1.25rem);">
+        Les offres sortent. Tu es déjà là. First Apply scanne en continu pour que tu sois toujours parmi les 10 premiers candidats.
+      </p>
+
+      <!-- CTAs -->
+      <div class="flex flex-wrap gap-4 mb-12">
+        <a href="/" class="btn-primary-glow px-10 py-4 text-lg tracking-tighter">Prendre l'avantage</a>
+        <a href="/" class="btn-glass px-10 py-4 text-lg tracking-tighter">Se connecter</a>
+      </div>
+
+      <!-- Social proof mini -->
+      <div class="flex items-center gap-4">
+        <div class="flex -space-x-2">
+          <div class="w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold" style="background:#192540;border-color:#060e20;color:#ba9eff;">A</div>
+          <div class="w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold" style="background:#192540;border-color:#060e20;color:#3adffa;">S</div>
+          <div class="w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold" style="background:#192540;border-color:#060e20;color:#ba9eff;">M</div>
+          <div class="w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold" style="background:#192540;border-color:#060e20;color:#3adffa;">+</div>
+        </div>
+        <span class="font-label text-xs uppercase tracking-widest text-on-surface-variant">+1 200 candidats actifs ce mois</span>
+      </div>
+    </div>
+
+    <!-- Right: app mockup -->
+    <div class="relative">
+      <!-- Glow behind mockup -->
+      <div class="absolute inset-0 rounded-2xl pointer-events-none" style="background:radial-gradient(ellipse at 50% 30%,rgba(186,158,255,0.12),transparent 70%);filter:blur(20px);transform:scale(1.1);"></div>
+
+      <div class="mockup-shell relative">
+        <!-- Top bar -->
+        <div class="mockup-topbar">
+          <div class="mockup-brand">⚡ First Apply</div>
+          <div class="mockup-live"><span class="dot-live"></span>Scan actif</div>
+        </div>
+
+        <!-- Mini stats -->
+        <div class="mockup-stats">
+          <div class="mockup-stat">
+            <div class="mockup-stat-val">14</div>
+            <div class="mockup-stat-lbl">Nouvelles aujourd'hui</div>
+          </div>
+          <div class="mockup-stat">
+            <div class="mockup-stat-val" style="color:#3adffa;">5</div>
+            <div class="mockup-stat-lbl">À postuler</div>
+          </div>
+          <div class="mockup-stat">
+            <div class="mockup-stat-val" style="color:#22c55e;">8</div>
+            <div class="mockup-stat-lbl">Envoyés</div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="mockup-tabs">
+          <div class="mockup-tab active">Flux live<span class="cnt">14</span></div>
+          <div class="mockup-tab">À postuler<span class="cnt">5</span></div>
+          <div class="mockup-tab">Envoyés</div>
+          <div class="mockup-tab">Historique</div>
+        </div>
+
+        <!-- Job rows -->
+        <div class="mockup-row">
+          <span class="mockup-badge-new badge-fresh">2 min</span>
+          <div class="mockup-job-wrap">
+            <div class="mockup-job-title">Product Designer · Notion</div>
+            <div class="mockup-job-meta">Paris · WTTJ · publiée il y a 2 min</div>
+          </div>
+          <div style="display:flex;gap:5px;">
+            <button class="mockup-btn btn-apply">⚡ Postuler</button>
+          </div>
+        </div>
+
+        <div class="mockup-row">
+          <span class="mockup-badge-new badge-fresh">8 min</span>
+          <div class="mockup-job-wrap">
+            <div class="mockup-job-title">Data Analyst · Stripe</div>
+            <div class="mockup-job-meta">Remote · Hellowork · publiée il y a 8 min</div>
+          </div>
+          <div style="display:flex;gap:5px;">
+            <button class="mockup-btn btn-apply">⚡ Postuler</button>
+          </div>
+        </div>
+
+        <div class="mockup-row">
+          <span class="mockup-badge-new badge-fresh">23 min</span>
+          <div class="mockup-job-wrap">
+            <div class="mockup-job-title">Frontend Engineer · Doctolib</div>
+            <div class="mockup-job-meta">Paris · WTTJ · publiée il y a 23 min</div>
+          </div>
+          <div style="display:flex;gap:5px;">
+            <button class="mockup-btn btn-sent">✓ Envoyé</button>
+          </div>
+        </div>
+
+        <div class="mockup-row">
+          <span class="mockup-badge-new badge-old">1h</span>
+          <div class="mockup-job-wrap">
+            <div class="mockup-job-title">UX Lead · BlaBlaCar</div>
+            <div class="mockup-job-meta">Paris · RemoteOK · publiée il y a 1h</div>
+          </div>
+          <div style="display:flex;gap:5px;">
+            <button class="mockup-btn btn-apply">⚡ Postuler</button>
+            <button class="mockup-btn btn-skip">Passer</button>
+          </div>
+        </div>
+
+        <!-- Bottom bar -->
+        <div style="padding:8px 14px;background:rgba(6,14,32,0.6);display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-family:'Space Grotesk';font-size:9px;color:#a3aac4;text-transform:uppercase;letter-spacing:0.12em;">Prochain scan dans 8 min</span>
+          <span style="font-family:'Space Grotesk';font-size:9px;color:#3adffa;">WTTJ · Hellowork · RemoteOK</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     TICKER
+══════════════════════════════════════════ -->
+<div class="py-4 overflow-hidden" style="background:rgba(9,19,40,0.8);border-top:1px solid rgba(64,72,93,0.2);border-bottom:1px solid rgba(64,72,93,0.2);">
+  <div class="ticker-wrap">
+    <div class="ticker-inner">
+      <!-- Repeat twice for seamless loop -->
+      <span class="ticker-item"><span class="dot-live" style="width:6px;height:6px;flex-shrink:0;"></span><span class="font-label text-xs text-secondary uppercase tracking-widest">Nouveau</span><span class="font-label text-xs text-on-surface-variant">Product Designer @ Figma · il y a 1 min</span></span>
+      <span class="ticker-item"><span class="dot-live" style="width:6px;height:6px;flex-shrink:0;"></span><span class="font-label text-xs text-secondary uppercase tracking-widest">Nouveau</span><span class="font-label text-xs text-on-surface-variant">Backend Eng @ Contentsquare · il y a 4 min</span></span>
+      <span class="ticker-item"><span class="dot-live" style="width:6px;height:6px;flex-shrink:0;"></span><span class="font-label text-xs text-secondary uppercase tracking-widest">Nouveau</span><span class="font-label text-xs text-on-surface-variant">Data Engineer @ Deezer · il y a 7 min</span></span>
+      <span class="ticker-item"><span class="dot-live" style="width:6px;height:6px;flex-shrink:0;"></span><span class="font-label text-xs text-secondary uppercase tracking-widest">Nouveau</span><span class="font-label text-xs text-on-surface-variant">UX Designer @ Decathlon · il y a 11 min</span></span>
+      <span class="ticker-item"><span class="dot-live" style="width:6px;height:6px;flex-shrink:0;"></span><span class="font-label text-xs text-secondary uppercase tracking-widest">Nouveau</span><span class="font-label text-xs text-on-surface-variant">PM Senior @ Doctolib · il y a 14 min</span></span>
+      <span class="ticker-item"><span class="dot-live" style="width:6px;height:6px;flex-shrink:0;"></span><span class="font-label text-xs text-secondary uppercase tracking-widest">Nouveau</span><span class="font-label text-xs text-on-surface-variant">DevOps @ Qonto · il y a 19 min</span></span>
+      <!-- Duplicate for loop -->
+      <span class="ticker-item"><span class="dot-live" style="width:6px;height:6px;flex-shrink:0;"></span><span class="font-label text-xs text-secondary uppercase tracking-widest">Nouveau</span><span class="font-label text-xs text-on-surface-variant">Product Designer @ Figma · il y a 1 min</span></span>
+      <span class="ticker-item"><span class="dot-live" style="width:6px;height:6px;flex-shrink:0;"></span><span class="font-label text-xs text-secondary uppercase tracking-widest">Nouveau</span><span class="font-label text-xs text-on-surface-variant">Backend Eng @ Contentsquare · il y a 4 min</span></span>
+      <span class="ticker-item"><span class="dot-live" style="width:6px;height:6px;flex-shrink:0;"></span><span class="font-label text-xs text-secondary uppercase tracking-widest">Nouveau</span><span class="font-label text-xs text-on-surface-variant">Data Engineer @ Deezer · il y a 7 min</span></span>
+      <span class="ticker-item"><span class="dot-live" style="width:6px;height:6px;flex-shrink:0;"></span><span class="font-label text-xs text-secondary uppercase tracking-widest">Nouveau</span><span class="font-label text-xs text-on-surface-variant">UX Designer @ Decathlon · il y a 11 min</span></span>
+      <span class="ticker-item"><span class="dot-live" style="width:6px;height:6px;flex-shrink:0;"></span><span class="font-label text-xs text-secondary uppercase tracking-widest">Nouveau</span><span class="font-label text-xs text-on-surface-variant">PM Senior @ Doctolib · il y a 14 min</span></span>
+      <span class="ticker-item"><span class="dot-live" style="width:6px;height:6px;flex-shrink:0;"></span><span class="font-label text-xs text-secondary uppercase tracking-widest">Nouveau</span><span class="font-label text-xs text-on-surface-variant">DevOps @ Qonto · il y a 19 min</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     COMMENT ÇA MARCHE
+══════════════════════════════════════════ -->
+<section id="how" class="py-32 px-6" style="background:#091328;">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center mb-20">
+      <span class="font-label text-xs uppercase tracking-widest text-secondary block mb-4">Simple. Rapide. Efficace.</span>
+      <h2 class="font-headline font-black tracking-tighter text-white" style="font-size:clamp(2.5rem,6vw,4.5rem);">Comment ça marche</h2>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-0 md:gap-px" style="background:rgba(64,72,93,0.15);border-radius:8px;overflow:hidden;">
+      <!-- Step 1 -->
+      <div class="step-card p-10" style="background:#091328;">
+        <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-8 text-2xl" style="background:rgba(58,223,250,0.1);">🎯</div>
+        <div class="font-label text-xs uppercase tracking-widest text-secondary mb-3">Étape 1</div>
+        <h3 class="font-headline font-black text-2xl text-white mb-4">Configure ta cible</h3>
+        <p class="text-on-surface-variant leading-relaxed">
+          Tes mots-clés, ta ville, ton secteur. Deux minutes. C'est tout ce dont on a besoin pour commencer à chasser à ta place.
+        </p>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step-card p-10" style="background:#091328;">
+        <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-8 text-2xl" style="background:rgba(186,158,255,0.1);">📡</div>
+        <div class="font-label text-xs uppercase tracking-widest text-primary mb-3">Étape 2</div>
+        <h3 class="font-headline font-black text-2xl text-white mb-4">On surveille à ta place</h3>
+        <p class="text-on-surface-variant leading-relaxed">
+          On scanne WTTJ, Hellowork et d'autres sources toutes les 10 minutes, 24h/24. Dès qu'une offre sort, elle est dans ton flux.
+        </p>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step-card p-10" style="background:#091328;">
+        <div class="w-14 h-14 rounded-xl flex items-center justify-center mb-8 text-2xl" style="background:rgba(58,223,250,0.1);">⚡</div>
+        <div class="font-label text-xs uppercase tracking-widest text-secondary mb-3">Étape 3</div>
+        <h3 class="font-headline font-black text-2xl text-white mb-4">Tu postules en premier</h3>
+        <p class="text-on-surface-variant leading-relaxed">
+          Ta candidature arrive sur le bureau du recruteur pendant que les autres sont encore en train de scrolller LinkedIn.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     STATS
+══════════════════════════════════════════ -->
+<section id="stats" class="py-24 px-6">
+  <div class="max-w-5xl mx-auto">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+      <div>
+        <div class="stat-big mb-3">+40%</div>
+        <div class="font-label text-xs uppercase tracking-widest text-on-surface-variant">de chances d'entretien<br/>en postulant dans les 2h</div>
+      </div>
+      <div>
+        <div class="stat-big mb-3">&lt; 10min</div>
+        <div class="font-label text-xs uppercase tracking-widest text-on-surface-variant">entre la publication<br/>et ta notification</div>
+      </div>
+      <div>
+        <div class="stat-big mb-3">3×</div>
+        <div class="font-label text-xs uppercase tracking-widest text-on-surface-variant">plus d'entretiens<br/>pour les 10 premiers candidats</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     POURQUOI C'EST PUISSANT
+══════════════════════════════════════════ -->
+<section id="why" class="py-32 px-6" style="background:#091328;">
+  <div class="max-w-7xl mx-auto">
+    <div class="mb-20">
+      <span class="font-label text-xs uppercase tracking-widest text-secondary block mb-4">Conçu pour gagner</span>
+      <h2 class="font-headline font-black tracking-tighter text-white" style="font-size:clamp(2.5rem,6vw,4.5rem);">Pourquoi c'est puissant</h2>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Feature 1 — large -->
+      <div class="feat-card p-10 lg:col-span-2 flex flex-col justify-between group" style="min-height:340px;">
+        <div>
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-6 text-xl" style="background:rgba(58,223,250,0.12);">⏱️</div>
+          <h3 class="font-headline font-black text-3xl text-white mb-4">Offres vraiment fraîches</h3>
+          <p class="text-on-surface-variant text-lg leading-relaxed max-w-lg">
+            90% des offres sur les job boards ont déjà des dizaines de candidatures quand tu les vois. On ne t'envoie que du flux pur — moins de 24h — pour que tu arrives toujours en premier.
+          </p>
+        </div>
+        <!-- Mini visual -->
+        <div class="mt-8 p-4 rounded-lg" style="background:rgba(6,14,32,0.7);">
+          <div class="flex items-center justify-between mb-3">
+            <span class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Fraîcheur des offres</span>
+            <span class="font-label text-xs text-secondary">Today</span>
+          </div>
+          <div class="flex items-end gap-2 h-12">
+            <div class="flex-1 rounded-sm" style="height:100%;background:rgba(58,223,250,0.7);"></div>
+            <div class="flex-1 rounded-sm" style="height:90%;background:rgba(58,223,250,0.5);"></div>
+            <div class="flex-1 rounded-sm" style="height:75%;background:rgba(58,223,250,0.35);"></div>
+            <div class="flex-1 rounded-sm" style="height:40%;background:rgba(58,223,250,0.2);"></div>
+            <div class="flex-1 rounded-sm" style="height:20%;background:rgba(163,170,196,0.15);"></div>
+            <div class="flex-1 rounded-sm" style="height:10%;background:rgba(163,170,196,0.1);"></div>
+          </div>
+          <div class="flex items-center justify-between mt-2">
+            <span class="font-label text-xs text-secondary">&lt; 2h</span>
+            <span class="font-label text-xs text-on-surface-variant">7j+</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Features 2 + 3 -->
+      <div class="flex flex-col gap-6">
+        <div class="feat-card p-8 flex items-start gap-5 group flex-1">
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-xl" style="background:rgba(186,158,255,0.12);">🤖</div>
+          <div>
+            <h3 class="font-headline font-black text-xl text-white mb-2">Zéro scroll inutile</h3>
+            <p class="text-on-surface-variant text-sm leading-relaxed">Tu ne vois que les offres qui matchent tes critères. Pas de bruit. Pas de pertes de temps.</p>
+          </div>
+        </div>
+        <div class="feat-card p-8 flex items-start gap-5 group flex-1">
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-xl" style="background:rgba(58,223,250,0.12);">📊</div>
+          <div>
+            <h3 class="font-headline font-black text-xl text-white mb-2">Tu suis tes candidatures</h3>
+            <p class="text-on-surface-variant text-sm leading-relaxed">À postuler, envoyé, passé. Un tableau de bord simple pour ne jamais perdre le fil.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     FINAL CTA
+══════════════════════════════════════════ -->
+<section class="py-36 px-6 relative overflow-hidden">
+  <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse 80% 50% at 50% 100%,rgba(186,158,255,0.08),transparent 70%);"></div>
+  <div class="max-w-3xl mx-auto text-center relative z-10">
+    <h2 class="font-headline font-black tracking-tighter text-white mb-8 leading-tight" style="font-size:clamp(2.8rem,7vw,5.5rem);">
+      Arrête d'arriver trop tard.<br/>
+      <span class="text-secondary">Sois dans les premiers.</span>
+    </h2>
+    <p class="text-xl text-on-surface-variant mb-12 leading-relaxed">
+      Rejoins les candidats qui utilisent la technologie<br class="hidden md:block" />
+      pour prendre de l'avance sur leur recherche.
+    </p>
+    <a href="/" class="btn-primary-glow inline-block px-14 py-5 text-xl tracking-tighter mb-8">
+      Créer mon compte gratuitement
+    </a>
+    <div class="flex items-center justify-center gap-3 mt-8">
+      <div class="flex -space-x-2">
+        <div class="w-9 h-9 rounded-full border-2 flex items-center justify-center text-xs font-bold" style="background:#192540;border-color:#060e20;color:#ba9eff;">L</div>
+        <div class="w-9 h-9 rounded-full border-2 flex items-center justify-center text-xs font-bold" style="background:#192540;border-color:#060e20;color:#3adffa;">J</div>
+        <div class="w-9 h-9 rounded-full border-2 flex items-center justify-center text-xs font-bold" style="background:#192540;border-color:#060e20;color:#ba9eff;">M</div>
+        <div class="w-9 h-9 rounded-full border-2 flex items-center justify-center text-xs font-bold" style="background:#141f38;border-color:#060e20;color:#a3aac4;">+</div>
+      </div>
+      <span class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Rejoint par +1 200 candidats actifs</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     FOOTER
+══════════════════════════════════════════ -->
+<footer style="background:#060e20;border-top:1px solid rgba(64,72,93,0.2);">
+  <div class="flex flex-col md:flex-row justify-between items-center w-full px-8 py-10 max-w-7xl mx-auto gap-6">
+    <div class="font-headline font-black text-lg tracking-tighter" style="color:#3adffa;">First Apply</div>
+    <div class="flex flex-wrap justify-center gap-6">
+      <a href="#" class="font-label text-xs uppercase tracking-widest text-on-surface-variant hover:text-secondary transition-colors">CGU</a>
+      <a href="#" class="font-label text-xs uppercase tracking-widest text-on-surface-variant hover:text-secondary transition-colors">Confidentialité</a>
+      <a href="#" class="font-label text-xs uppercase tracking-widest text-on-surface-variant hover:text-secondary transition-colors">Contact</a>
+    </div>
+    <div class="font-label text-xs uppercase tracking-widest text-on-surface-variant">© 2025 First Apply</div>
+  </div>
+</footer>
+
+</body>
+</html>
