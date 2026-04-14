@@ -30,6 +30,12 @@ def fetch_jobs(keyword: str | None = None, limit: int = 50) -> list[dict]:
     """
     Retourne une liste de jobs depuis le flux RSS de RemoteOK.
 
+    Note : RemoteOK utilise des tags XML non-standard (hors namespace RSS) :
+        <company>   — nom de l'entreprise (PAS dans le titre)
+        <tags>      — tags comma-separated
+        <location>  — localisation (état/pays, ou vide pour full-remote)
+    Ces champs ne sont pas récupérables via findtext("category").
+
     Chaque dict contient au minimum :
         titre, entreprise, url, date_publication
     Et optionnellement :
@@ -51,39 +57,39 @@ def fetch_jobs(keyword: str | None = None, limit: int = 50) -> list[dict]:
         pub_date  = item.findtext("pubDate") or ""
         desc_html = item.findtext("description") or ""
 
-        # Parse date
+        # Champs non-standard RemoteOK (tags XML hors namespace RSS)
+        entreprise  = (item.findtext("company")  or "").strip()
+        tags_raw    = (item.findtext("tags")      or "").strip()
+        location_raw= (item.findtext("location")  or "").strip()
+
+        # Parse date — RemoteOK utilise ISO 8601, pas RFC 2822
         try:
-            date_pub = parsedate_to_datetime(pub_date).astimezone(timezone.utc)
+            date_pub = datetime.fromisoformat(pub_date.replace("Z", "+00:00")).astimezone(timezone.utc)
         except Exception:
-            date_pub = datetime.now(timezone.utc)
+            try:
+                date_pub = parsedate_to_datetime(pub_date).astimezone(timezone.utc)
+            except Exception:
+                date_pub = datetime.now(timezone.utc)
 
-        # Entreprise extraite depuis le titre "Role @ Company"
-        entreprise = ""
-        if " @ " in titre:
-            parts     = titre.split(" @ ", 1)
-            titre     = parts[0].strip()
-            entreprise= parts[1].strip()
-
-        # Tags dans <category>
-        tags = [c.text.strip() for c in item.findall("category") if c.text]
+        tags = [t.strip() for t in tags_raw.split(",") if t.strip()] if tags_raw else []
+        localisation = location_raw or "Remote"
 
         job = {
             "titre":            titre,
-            "entreprise":       entreprise or "RemoteOK",
+            "entreprise":       entreprise or "N/A",
             "url":              lien,
             "date_publication": date_pub.isoformat(),
             "description":      desc_html[:1000] if desc_html else None,
-            "localisation":     "Remote",
+            "localisation":     localisation,
             "source":           "remoteok",
             "tags":             tags,
-            # RemoteOK rarement expose le salaire dans le RSS
             "salaire":          None,
             "secteur":          tags[0] if tags else None,
-            "type_contrat":     "CDI / Freelance",
+            "type_contrat":     "Remote",
         }
 
         if keyword:
-            haystack = f"{job['titre']} {' '.join(tags)} {job.get('description', '')}".lower()
+            haystack = f"{job['titre']} {tags_raw} {job.get('description', '')}".lower()
             if keyword.lower() not in haystack:
                 continue
 

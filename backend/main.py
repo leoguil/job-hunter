@@ -139,7 +139,8 @@ def _get_user_status(user_id: str) -> dict:
 # ── Background scrape ─────────────────────────────────────────
 
 def _run_scrape(user_id: str):
-    from .scrapers import wttj, hellowork
+    import importlib
+    from .scrapers import SOURCES
     from .database import SessionLocal
 
     status = _get_user_status(user_id)
@@ -161,14 +162,23 @@ def _run_scrape(user_id: str):
         exclus     = [k.lower() for k in (settings.mots_cles_exclus or [])]
         secteurs   = [s.lower() for s in (settings.secteurs or [])]
 
+        # ── Sources actives (depuis le registre) ──────────────────
+        active_sources = [s for s in SOURCES if s["enabled"]]
+        logger.info("[%s] Sources actives: %s", user_id[:8],
+                    [s["name"] for s in active_sources])
+
         all_jobs = []
-        for scraper in [wttj, hellowork]:
+        for src in active_sources:
             try:
-                jobs = scraper.scrape(mots_cles, locs, max_days)
-                logger.info(f"[{user_id[:8]}] {scraper.__name__}: {len(jobs)} jobs")
+                mod   = importlib.import_module(f".scrapers.{src['module']}", package=__name__.rsplit(".", 1)[0])
+                jobs  = mod.scrape(mots_cles, locs, max_days)
+                limit = src.get("limit", 0)
+                if limit and len(jobs) > limit:
+                    jobs = jobs[:limit]
+                logger.info("[%s] %s: %d offres", user_id[:8], src["name"], len(jobs))
                 all_jobs.extend(jobs)
             except Exception as e:
-                logger.error(f"[{user_id[:8]}] {scraper.__name__} failed: {e}", exc_info=True)
+                logger.error("[%s] %s échoué: %s", user_id[:8], src["name"], e, exc_info=True)
 
         # Filtre mots-clés exclus
         if exclus:
@@ -618,24 +628,30 @@ def debug_scrapers(
     days: int     = 30,
     user_id: str  = Depends(get_current_user_id),
 ):
-    from .scrapers import wttj, hellowork
+    import importlib
+    from .scrapers import SOURCES
     report = {}
-    for scraper, name in [(wttj, "wttj"), (hellowork, "hellowork")]:
+    for src in SOURCES:
+        name = src["name"]
+        status_label = "enabled" if src["enabled"] else "disabled"
         try:
-            jobs = scraper.scrape([keyword], [location], max_days=days)
+            mod  = importlib.import_module(f".scrapers.{src['module']}", package=__name__.rsplit(".", 1)[0])
+            jobs = mod.scrape([keyword], [location], max_days=days)
             report[name] = {
+                "status": status_label,
                 "count": len(jobs),
                 "sample": [{
                     "titre": j["titre"],
                     "entreprise": j["entreprise"],
                     "localisation": j.get("localisation"),
-                    "date_publication": j["date_publication"].isoformat(),
+                    "date_publication": j["date_publication"].isoformat()
+                        if hasattr(j["date_publication"], "isoformat") else j["date_publication"],
                     "url": j["url"],
                 } for j in jobs[:5]],
                 "error": None,
             }
         except Exception as e:
-            report[name] = {"count": 0, "sample": [], "error": str(e)}
+            report[name] = {"status": status_label, "count": 0, "sample": [], "error": str(e)}
     return report
 
 
