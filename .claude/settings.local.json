@@ -7,7 +7,21 @@
       "Bash(wait)",
       "Bash(gh auth:*)",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git rm:*)",
+      "Bash(git reset:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(gh repo:*)",
+      "Bash(git push:*)",
+      "Bash(python3 -c ':*)",
+      "Bash(python3 -c \"import ast, sys; ast.parse\\(open\\('backend/main.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python -m backend.scrapers.poc.remoteok)",
+      "Bash(python3 -m backend.scrapers.poc.remoteok)",
+      "Bash(python3 -m backend.scrapers.poc.apec \"chef de projet\")",
+      "Bash(python3 -m backend.scrapers.poc.francetravail)",
+      "Bash(python3 -m backend.scrapers.poc.cadremploi \"développeur\")",
+      "Bash(pip3 install:*)",
+      "Bash(git commit -m 'fix: supprime l'\\\\''éclair du logo First Apply, logo auth cliquable → landing:*)"
     ]
   }
 }

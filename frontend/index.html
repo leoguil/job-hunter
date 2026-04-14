@@ -239,13 +239,6 @@
     }
     #loading-screen .logo { font-family: var(--font-headline); font-size: 1.8rem; font-weight: 900; letter-spacing: -0.03em; color: var(--accent); }
     #loading-screen .sub  { font-size: 0.875rem; color: var(--muted); }
-    /* Wake-up banner */
-    .wakeup-banner {
-      background: #1a1d27; border: 1px solid var(--yellow); color: var(--yellow);
-      border-radius: 8px; padding: 0.6rem 1rem; font-size: 0.82rem; display: none;
-      align-items: center; gap: 0.5rem; margin: 0 1.5rem;
-    }
-    .wakeup-banner.visible { display: flex; }
 
     /* ── Lien mot de passe oublié ── */
     .auth-link { color: var(--muted); font-size: 0.8rem; text-align: center; margin-top: 0.6rem; cursor: pointer; }
@@ -348,12 +341,6 @@
       <button class="btn-ghost" onclick="doLogout()" title="Déconnexion"><i class="bi bi-box-arrow-right"></i></button>
     </div>
   </nav>
-
-  <!-- Wake-up banner -->
-  <div class="wakeup-banner" id="wakeup-banner">
-    <i class="bi bi-hourglass-split spin"></i>
-    <span>Le serveur se réveille (plan gratuit Render) — cela peut prendre jusqu'à 30 secondes…</span>
-  </div>
 
   <!-- Scrape progress bar -->
   <div class="scrape-bar" id="scrape-bar">
@@ -499,8 +486,8 @@ const CONFIG = {
   // 2. Supabase Dashboard → Project Settings → API → Publishable (anon) key
   SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_GR_DSrT2z1d0EAtuhAzP6g_oYaUPz-u',
 
-  // 3. URL backend Render
-  API_URL: 'https://job-hunter-pg56.onrender.com',
+  // 3. URL backend
+  API_URL: 'https://firstapply.fr',
 
   // PostHog analytics (optionnel — laisser vide pour désactiver)
   POSTHOG_KEY: '',
@@ -707,10 +694,9 @@ function authHeaders() {
   };
 }
 
-async function apiFetch(path, opts = {}, retryOnWakeUp = true) {
+async function apiFetch(path, opts = {}) {
   const url = CONFIG.API_URL + path;
 
-  // Log token pour debug (30 premiers chars suffisent)
   const tokenSnippet = currentSession?.access_token?.slice(0, 30) || '(aucun)';
   console.log(`[api] ${opts.method || 'GET'} ${path} — token: ${tokenSnippet}…`);
 
@@ -719,20 +705,13 @@ async function apiFetch(path, opts = {}, retryOnWakeUp = true) {
     res = await fetch(url, {
       ...opts,
       headers: { ...authHeaders(), ...(opts.headers || {}) },
-      signal: AbortSignal.timeout(55000),
+      signal: AbortSignal.timeout(30000),
     });
   } catch (err) {
     console.error(`[api] fetch error on ${path}:`, err.message);
-    if (retryOnWakeUp) {
-      document.getElementById('wakeup-banner')?.classList.add('visible');
-      await new Promise(r => setTimeout(r, 5000));
-      return apiFetch(path, opts, false);
-    }
-    document.getElementById('wakeup-banner')?.classList.remove('visible');
     throw new Error(`Serveur inaccessible : ${err.message}`);
   }
 
-  document.getElementById('wakeup-banner')?.classList.remove('visible');
   console.log(`[api] ${path} → HTTP ${res.status}`);
 
   // Token expiré → tentative de refresh
