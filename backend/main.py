@@ -33,51 +33,51 @@ def _apply_migrations() -> None:
     Applique les migrations de colonnes que create_all ne gère pas
     (create_all ne modifie jamais une table existante).
 
-    Actuellement : ajout de jobs.search_run_id si absente.
-    Appelé une seule fois au démarrage, non-bloquant en cas d'erreur.
+    IMPORTANT : ne jamais faire de `return` prématuré ici — chaque bloc
+    de migration est indépendant et doit toujours s'exécuter.
     """
     _logger = logging.getLogger(__name__ + ".migrations")
+
+    from .database import DATABASE_URL as _db_url
+    is_pg = _db_url.startswith(("postgresql", "postgres"))
+
     try:
         insp = sa_inspect(engine)
-        if not insp.has_table("jobs"):
-            _logger.info("Migration: table 'jobs' absente, create_all s'en charge")
-            return
+    except Exception as exc:
+        _logger.error("Migration: impossible d'inspecter le schéma: %s", exc, exc_info=True)
+        return
 
-        existing_cols = {c["name"] for c in insp.get_columns("jobs")}
-
-        if "search_run_id" in existing_cols:
-            _logger.info("Migration check OK: jobs.search_run_id déjà présente")
-            return
-
-        _logger.info("Migration: ajout de la colonne jobs.search_run_id…")
-        from .database import DATABASE_URL as _db_url
-        is_pg = _db_url.startswith(("postgresql", "postgres"))
-
-        with engine.connect() as conn:
-            if is_pg:
-                # PostgreSQL : FK + index
-                conn.execute(text(
-                    "ALTER TABLE jobs "
-                    "ADD COLUMN search_run_id BIGINT "
-                    "REFERENCES search_runs(id) ON DELETE SET NULL"
-                ))
-                conn.execute(text(
-                    "CREATE INDEX IF NOT EXISTS idx_jobs_search_run "
-                    "ON jobs (search_run_id)"
-                ))
+    # ── jobs.search_run_id ────────────────────────────────────
+    try:
+        if insp.has_table("jobs"):
+            existing_cols = {c["name"] for c in insp.get_columns("jobs")}
+            if "search_run_id" not in existing_cols:
+                _logger.info("Migration: ajout de la colonne jobs.search_run_id…")
+                with engine.connect() as conn:
+                    if is_pg:
+                        conn.execute(text(
+                            "ALTER TABLE jobs "
+                            "ADD COLUMN search_run_id BIGINT "
+                            "REFERENCES search_runs(id) ON DELETE SET NULL"
+                        ))
+                        conn.execute(text(
+                            "CREATE INDEX IF NOT EXISTS idx_jobs_search_run "
+                            "ON jobs (search_run_id)"
+                        ))
+                    else:
+                        conn.execute(text(
+                            "ALTER TABLE jobs ADD COLUMN search_run_id INTEGER"
+                        ))
+                    conn.commit()
+                _logger.info("Migration OK: jobs.search_run_id ajoutée avec succès")
             else:
-                # SQLite (dev local) : pas de FK inline sur ALTER TABLE
-                conn.execute(text(
-                    "ALTER TABLE jobs ADD COLUMN search_run_id INTEGER"
-                ))
-            conn.commit()
-
-        _logger.info("Migration OK: jobs.search_run_id ajoutée avec succès")
-
+                _logger.info("Migration check OK: jobs.search_run_id déjà présente")
     except Exception as exc:
         _logger.error("Migration jobs.search_run_id échouée (non bloquant): %s", exc, exc_info=True)
 
     # ── user_settings.secteurs ────────────────────────────────
+    # ATTENTION : ce bloc doit toujours s'exécuter — ne jamais l'atteindre
+    # depuis un `return` dans le bloc précédent (bug corrigé ici).
     try:
         if insp.has_table("user_settings"):
             us_cols = {c["name"] for c in insp.get_columns("user_settings")}
@@ -97,8 +97,8 @@ def _apply_migrations() -> None:
                 _logger.info("Migration OK: user_settings.secteurs ajoutée")
             else:
                 _logger.info("Migration check OK: user_settings.secteurs déjà présente")
-    except Exception as exc2:
-        _logger.error("Migration user_settings.secteurs échouée (non bloquant): %s", exc2)
+    except Exception as exc:
+        _logger.error("Migration user_settings.secteurs échouée (non bloquant): %s", exc, exc_info=True)
 
 
 _apply_migrations()

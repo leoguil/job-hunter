@@ -461,6 +461,7 @@ let allJobs = [];
 let sortField = 'date_publication';
 let sortAsc = false;
 let scrapePoller = null;
+let isPasswordRecovery = false;   // true pendant le flow de réinitialisation
 
 // ════════════════════════════════════════════════════════════
 // AUTH
@@ -529,8 +530,15 @@ async function doResetPassword() {
   const { error } = await sb.auth.updateUser({ password: pass });
   btn.disabled = false; btn.textContent = 'Enregistrer le nouveau mot de passe';
   if (error) { err.textContent = error.message; return; }
-  succ.textContent = '✓ Mot de passe modifié ! Redirection…';
-  setTimeout(() => { switchTab('login'); }, 2000);
+  succ.textContent = '✓ Mot de passe modifié ! Retour à la connexion…';
+  // Déconnecte la session recovery et revient au login proprement
+  setTimeout(async () => {
+    isPasswordRecovery = false;
+    currentSession = null;
+    await sb.auth.signOut();
+    switchTab('login');
+    showAuthScreen();
+  }, 1500);
 }
 
 async function doLogin() {
@@ -1098,16 +1106,25 @@ if (CONFIG.POSTHOG_KEY) {
   sb.auth.onAuthStateChange((event, session) => {
     console.log('[auth] onAuthStateChange event:', event, '— session:', !!session, '— currentSession:', !!currentSession);
     if (event === 'PASSWORD_RECOVERY') {
-      // L'utilisateur a cliqué sur le lien de réinitialisation dans son email
+      // L'utilisateur a cliqué sur le lien de réinitialisation dans son email.
+      // On stocke la session recovery pour que updateUser() fonctionne,
+      // et on pose le flag pour empêcher getSession() d'appeler onSessionReady().
       console.log('[auth] PASSWORD_RECOVERY → showResetPassword');
+      isPasswordRecovery = true;
+      currentSession = session;   // bloque le fallback getSession()
       showResetPassword();
     } else if (event === 'SIGNED_IN' && session && !currentSession) {
-      onSessionReady(session);
+      // Ne pas entrer dans l'app si on est en mode recovery (Supabase peut
+      // aussi émettre SIGNED_IN juste après PASSWORD_RECOVERY).
+      if (!isPasswordRecovery) {
+        onSessionReady(session);
+      }
     } else if (event === 'TOKEN_REFRESHED' && session) {
       console.log('[auth] token refreshed silencieusement');
       currentSession = session;
     } else if (event === 'SIGNED_OUT') {
       console.log('[auth] SIGNED_OUT → showAuthScreen');
+      isPasswordRecovery = false;
       currentSession = null;
       allJobs = [];
       showAuthScreen();
@@ -1120,8 +1137,11 @@ if (CONFIG.POSTHOG_KEY) {
   console.log('[auth] getSession result — session:', !!session, '— error:', sessionError?.message, '— currentSession déjà set:', !!currentSession);
 
   if (session && !currentSession) {
-    // Session trouvée, pas encore traitée par onAuthStateChange
-    onSessionReady(session);
+    // Session trouvée, pas encore traitée par onAuthStateChange.
+    // isPasswordRecovery serait déjà true si PASSWORD_RECOVERY a tiré en premier.
+    if (!isPasswordRecovery) {
+      onSessionReady(session);
+    }
   } else if (!session && !currentSession) {
     // Aucune session
     showAuthScreen();
