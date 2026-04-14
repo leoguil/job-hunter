@@ -114,6 +114,29 @@
     .btn-status.active-postule { background: #0d1f3c; color: var(--blue);   border-color: var(--blue); }
     .btn-status.active-ignore  { background: #1a1a1a; color: var(--muted);  border-color: var(--muted); }
 
+    /* ── Section tab counts ── */
+    .tab-count {
+      display: inline-block; background: var(--surface2); border-radius: 10px;
+      padding: 0 6px; font-size: 0.68rem; color: var(--muted);
+      margin-left: 5px; vertical-align: middle; font-weight: 600;
+    }
+    .tab-btn.active .tab-count { background: rgba(108,99,255,0.25); color: var(--accent); }
+
+    /* ── Salary slider ── */
+    .salary-filter { display: flex; align-items: center; gap: 0.5rem; }
+    .salary-filter input[type=range] {
+      -webkit-appearance: none; appearance: none; width: 110px; height: 4px;
+      background: var(--border); border-radius: 2px; outline: none; cursor: pointer;
+    }
+    .salary-filter input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+      background: var(--accent); cursor: pointer;
+    }
+    .salary-label { font-size: 0.8rem; color: var(--muted); white-space: nowrap; min-width: 80px; }
+
+    /* ── RemoteOK badge ── */
+    .badge-remoteok { background: #0d1f1a; color: #22c55e; border: 1px solid #22c55e44; }
+
     /* ── Buttons ── */
     .btn-primary-custom {
       background: var(--accent); color: #fff; border: none; border-radius: 8px;
@@ -315,28 +338,25 @@
     <div class="stat-card ignore">    <span class="label">Ignoré</span>      <span class="value" id="stat-ignore">—</span></div>
   </div>
 
-  <!-- Tabs -->
-  <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchMainTab('jobs')">Offres</button>
-    <button class="tab-btn"        onclick="switchMainTab('history')">Historique</button>
+  <!-- Section tabs -->
+  <div class="tab-bar" id="section-tabbar">
+    <button class="tab-btn active" id="stab-offres"      onclick="switchSection('offres')">Offres<span class="tab-count" id="cnt-offres"></span></button>
+    <button class="tab-btn"        id="stab-traiter"     onclick="switchSection('traiter')">À traiter<span class="tab-count" id="cnt-traiter"></span></button>
+    <button class="tab-btn"        id="stab-postule"     onclick="switchSection('postule')">Postulé<span class="tab-count" id="cnt-postule"></span></button>
+    <button class="tab-btn"        id="stab-ignore"      onclick="switchSection('ignore')">Ignoré<span class="tab-count" id="cnt-ignore"></span></button>
+    <button class="tab-btn"        id="stab-historique"  onclick="switchSection('historique')">Historique</button>
   </div>
 
-  <!-- ── Tab: Jobs ── -->
-  <div class="tab-panel active" id="panel-jobs">
+  <!-- ── Panel: Jobs (shared by Offres / À traiter / Postulé / Ignoré) ── -->
+  <div id="panel-jobs">
     <div class="filters-bar">
       <i class="bi bi-funnel" style="color:var(--muted);"></i>
-      <input type="text" id="filter-search" placeholder="Rechercher…" style="width:220px;" oninput="applyFilters()" />
-      <select id="filter-statut" onchange="applyFilters()">
-        <option value="">Tous statuts</option>
-        <option value="sans_statut">Sans statut</option>
-        <option value="a_traiter">À traiter</option>
-        <option value="postule">Postulé</option>
-        <option value="ignore">Ignoré</option>
-      </select>
+      <input type="text" id="filter-search" placeholder="Rechercher…" style="width:200px;" oninput="applyFilters()" />
       <select id="filter-source" onchange="applyFilters()">
         <option value="">Toutes sources</option>
         <option value="welcometothejungle">WTTJ</option>
         <option value="hellowork">Hellowork</option>
+        <option value="remoteok">RemoteOK</option>
       </select>
       <select id="filter-days" onchange="applyFilters()">
         <option value="">Toutes dates</option>
@@ -344,6 +364,11 @@
         <option value="14">14 derniers jours</option>
         <option value="30">30 derniers jours</option>
       </select>
+      <div class="salary-filter">
+        <i class="bi bi-currency-euro" style="color:var(--muted);font-size:0.85rem;"></i>
+        <input type="range" id="filter-salary" min="0" max="120000" step="5000" value="0" oninput="onSalarySlider()" />
+        <span class="salary-label" id="salary-label">Tout salaire</span>
+      </div>
       <span style="margin-left:auto;font-size:0.8rem;color:var(--muted);" id="count-label"></span>
     </div>
 
@@ -366,8 +391,8 @@
     </div>
   </div>
 
-  <!-- ── Tab: History ── -->
-  <div class="tab-panel" id="panel-history">
+  <!-- ── Panel: History ── -->
+  <div id="panel-history" style="display:none;">
     <div class="history-table" id="history-list">
       <div class="empty-state"><i class="bi bi-clock-history"></i>Aucune recherche effectuée.</div>
     </div>
@@ -462,6 +487,7 @@ let sortField = 'date_publication';
 let sortAsc = false;
 let scrapePoller = null;
 let isPasswordRecovery = false;   // true pendant le flow de réinitialisation
+let activeSection = 'offres';     // offres | traiter | postule | ignore | historique
 
 // ════════════════════════════════════════════════════════════
 // AUTH
@@ -745,6 +771,7 @@ async function loadJobs() {
     `<tr><td colspan="6"><div class="empty-state"><i class="bi bi-arrow-repeat spin"></i>Chargement des offres…</div></td></tr>`;
   try {
     allJobs = await apiFetch('/api/jobs');
+    updateSectionCounts();
     applyFilters();
   } catch (e) {
     const msg = e.message || 'Erreur inconnue';
@@ -764,23 +791,101 @@ async function loadStats() {
   } catch {}
 }
 
-function applyFilters() {
-  const search = document.getElementById('filter-search').value.toLowerCase();
-  const statut = document.getElementById('filter-statut').value;
-  const source = document.getElementById('filter-source').value;
-  const days   = parseInt(document.getElementById('filter-days').value) || 0;
-  const now    = new Date();
+// ── Section tabs ──────────────────────────────────────────────
 
-  let filtered = allJobs.filter(job => {
+const SECTION_STATUT = {
+  offres:  null,         // pas de statut
+  traiter: 'a_traiter',
+  postule: 'postule',
+  ignore:  'ignore',
+};
+
+function getJobsForSection(section) {
+  if (section === 'historique') return [];
+  const target = SECTION_STATUT[section];
+  return allJobs.filter(j =>
+    target === null ? !j.statut : j.statut === target
+  );
+}
+
+function updateSectionCounts() {
+  const counts = { offres: 0, traiter: 0, postule: 0, ignore: 0 };
+  for (const j of allJobs) {
+    if (!j.statut)           counts.offres++;
+    else if (j.statut === 'a_traiter') counts.traiter++;
+    else if (j.statut === 'postule')   counts.postule++;
+    else if (j.statut === 'ignore')    counts.ignore++;
+  }
+  for (const [key, val] of Object.entries(counts)) {
+    const el = document.getElementById(`cnt-${key}`);
+    if (el) el.textContent = val > 0 ? val : '';
+  }
+}
+
+function switchSection(section) {
+  activeSection = section;
+
+  // Tab active state
+  ['offres','traiter','postule','ignore','historique'].forEach(s => {
+    document.getElementById(`stab-${s}`)?.classList.toggle('active', s === section);
+  });
+
+  // Show/hide panels
+  const isHistory = section === 'historique';
+  document.getElementById('panel-jobs').style.display     = isHistory ? 'none' : '';
+  document.getElementById('panel-history').style.display  = isHistory ? '' : 'none';
+
+  if (isHistory) {
+    loadHistory();
+  } else {
+    applyFilters();
+  }
+}
+
+// ── Salary slider ─────────────────────────────────────────────
+
+function onSalarySlider() {
+  const val = parseInt(document.getElementById('filter-salary').value) || 0;
+  document.getElementById('salary-label').textContent =
+    val > 0 ? `≥ ${(val/1000).toFixed(0)}k€/an` : 'Tout salaire';
+  applyFilters();
+}
+
+function parseSalaireMin(str) {
+  // Extrait le premier nombre d'une chaîne salaire (ex: "40 000 – 60 000 €/an")
+  if (!str) return null;
+  const cleaned = str.replace(/[\s\u00a0]/g, '');
+  const m = cleaned.match(/(\d{4,})/);
+  if (!m) return null;
+  let val = parseInt(m[1]);
+  // Si ça ressemble à un mensuel (< 6 000 après nettoyage), on annualise
+  if (val < 6000) val = val * 12;
+  return val;
+}
+
+// ── Filters ───────────────────────────────────────────────────
+
+function applyFilters() {
+  if (activeSection === 'historique') return;
+
+  const search  = document.getElementById('filter-search').value.toLowerCase();
+  const source  = document.getElementById('filter-source').value;
+  const days    = parseInt(document.getElementById('filter-days').value) || 0;
+  const salMin  = parseInt(document.getElementById('filter-salary').value) || 0;
+  const now     = new Date();
+
+  // Base : jobs de la section active uniquement
+  let filtered = getJobsForSection(activeSection).filter(job => {
     if (search) {
       const hay = `${job.titre} ${job.entreprise} ${job.localisation || ''}`.toLowerCase();
       if (!hay.includes(search)) return false;
     }
     if (source && job.source !== source) return false;
     if (days && (now - new Date(job.date_publication)) > days * 86400000) return false;
-    if (statut) {
-      if (statut === 'sans_statut' && job.statut)         return false;
-      if (statut !== 'sans_statut' && job.statut !== statut) return false;
+    if (salMin > 0) {
+      const jobSal = parseSalaireMin(job.salaire);
+      // Si le job a un salaire explicite ET qu'il est inférieur au min → exclure
+      if (jobSal !== null && jobSal < salMin) return false;
     }
     return true;
   });
@@ -806,18 +911,26 @@ function sortBy(field) {
 
 function renderTable(jobs) {
   const tbody = document.getElementById('jobs-table-body');
+
+  const emptyMsgs = {
+    offres:  'Aucune offre sans statut. Lancez une recherche ou consultez les autres sections.',
+    traiter: 'Aucune offre à traiter.',
+    postule: 'Aucune candidature enregistrée.',
+    ignore:  'Aucune offre ignorée.',
+  };
   if (!jobs.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="bi bi-inbox"></i>Aucune offre. Lancez une recherche !</div></td></tr>`;
+    const msg = emptyMsgs[activeSection] || 'Aucune offre.';
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="bi bi-inbox"></i>${msg}</div></td></tr>`;
     return;
   }
-  const statusLabels = { a_traiter: 'À traiter', postule: 'Postulé', ignore: 'Ignoré' };
 
   tbody.innerHTML = jobs.map(job => {
     const s = job.statut || '';
-    const newBadge = (new Date() - new Date(job.date_publication)) < 3*86400000 ? '<span class="badge-new">NEW</span>' : '';
+    const newBadge = (new Date() - new Date(job.date_publication)) < 3*86400000
+      ? '<span class="badge-new">NEW</span>' : '';
     return `<tr>
       <td class="job-title">
-        <a href="${job.url}" target="_blank" rel="noopener">${esc(job.titre)}</a>${newBadge}
+        <a href="${esc(job.url)}" target="_blank" rel="noopener">${esc(job.titre)}</a>${newBadge}
         ${job.salaire ? `<div style="font-size:0.75rem;color:var(--green);margin-top:2px;">${esc(job.salaire)}</div>` : ''}
       </td>
       <td class="job-company hide-mobile">${esc(job.entreprise)}</td>
@@ -826,7 +939,7 @@ function renderTable(jobs) {
       <td class="hide-mobile">${sourceBadge(job.source)}</td>
       <td>
         <div class="status-btns">
-          <button class="btn-status ${s==='a_traiter'?'active-traiter':''}" onclick="setStatus(${job.id},'a_traiter')">📋 Traiter</button>
+          <button class="btn-status ${s==='a_traiter'?'active-traiter':''}" onclick="setStatus(${job.id},'a_traiter')">📋 À traiter</button>
           <button class="btn-status ${s==='postule'   ?'active-postule':''}" onclick="setStatus(${job.id},'postule')"  >✅ Postulé</button>
           <button class="btn-status ${s==='ignore'    ?'active-ignore' :''}" onclick="setStatus(${job.id},'ignore')"   >✗ Ignorer</button>
         </div>
@@ -843,10 +956,12 @@ async function setStatus(jobId, statut) {
     });
     const job = allJobs.find(j => j.id === jobId);
     if (job) job.statut = statut;
+    // Mise à jour immédiate : compte + rerenderTable dans la section active
+    updateSectionCounts();
     applyFilters();
     loadStats();
     const labels = { a_traiter: 'À traiter', postule: 'Postulé ✅', ignore: 'Ignoré' };
-    toast(`Statut : ${labels[statut]}`, 'success', 2000);
+    toast(`${labels[statut]}`, 'success', 2000);
     posthogCapture('status_changed', { statut });
   } catch {
     toast('Erreur lors de la mise à jour', 'error');
@@ -1032,17 +1147,8 @@ async function _execDeleteSearchRun(runId) {
   }
 }
 
-// ════════════════════════════════════════════════════════════
-// TABS (main)
-// ════════════════════════════════════════════════════════════
-
-function switchMainTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach((b, i) =>
-    b.classList.toggle('active', (tab==='jobs' && i===0) || (tab==='history' && i===1)));
-  document.getElementById('panel-jobs').classList.toggle('active', tab === 'jobs');
-  document.getElementById('panel-history').classList.toggle('active', tab === 'history');
-  if (tab === 'history') loadHistory();
-}
+// switchMainTab gardé pour compatibilité ascendante (inutilisé)
+function switchMainTab(tab) { switchSection(tab === 'history' ? 'historique' : 'offres'); }
 
 // ════════════════════════════════════════════════════════════
 // UTILS
@@ -1066,7 +1172,8 @@ function fmtDate(iso) {
 function sourceBadge(src) {
   if (src === 'welcometothejungle') return '<span class="badge-source badge-wttj">WTTJ</span>';
   if (src === 'hellowork')          return '<span class="badge-source badge-hw">Hellowork</span>';
-  return `<span class="badge-source">${src}</span>`;
+  if (src === 'remoteok')           return '<span class="badge-source badge-remoteok">RemoteOK</span>';
+  return `<span class="badge-source">${esc(src)}</span>`;
 }
 
 function toast(msg, type = 'info', dur = 3500) {
