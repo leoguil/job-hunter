@@ -75,10 +75,30 @@ def _apply_migrations() -> None:
         _logger.info("Migration OK: jobs.search_run_id ajoutée avec succès")
 
     except Exception as exc:
-        # Non-bloquant : l'app démarre même si la migration échoue
-        logging.getLogger(__name__ + ".migrations").error(
-            "Migration échouée (non bloquant): %s", exc, exc_info=True
-        )
+        _logger.error("Migration jobs.search_run_id échouée (non bloquant): %s", exc, exc_info=True)
+
+    # ── user_settings.secteurs ────────────────────────────────
+    try:
+        if insp.has_table("user_settings"):
+            us_cols = {c["name"] for c in insp.get_columns("user_settings")}
+            if "secteurs" not in us_cols:
+                _logger.info("Migration: ajout de user_settings.secteurs…")
+                with engine.connect() as conn:
+                    if is_pg:
+                        conn.execute(text(
+                            "ALTER TABLE user_settings "
+                            "ADD COLUMN secteurs JSONB NOT NULL DEFAULT '[]'"
+                        ))
+                    else:
+                        conn.execute(text(
+                            "ALTER TABLE user_settings ADD COLUMN secteurs TEXT DEFAULT '[]'"
+                        ))
+                    conn.commit()
+                _logger.info("Migration OK: user_settings.secteurs ajoutée")
+            else:
+                _logger.info("Migration check OK: user_settings.secteurs déjà présente")
+    except Exception as exc2:
+        _logger.error("Migration user_settings.secteurs échouée (non bloquant): %s", exc2)
 
 
 _apply_migrations()
@@ -135,10 +155,11 @@ def _run_scrape(user_id: str):
             db.commit()
             db.refresh(settings)
 
-        mots_cles  = settings.mots_cles or ["business developer"]
+        mots_cles  = settings.mots_cles or ["développeur"]
         locs       = settings.localisation or []
         max_days   = settings.date_max or 30
         exclus     = [k.lower() for k in (settings.mots_cles_exclus or [])]
+        secteurs   = [s.lower() for s in (settings.secteurs or [])]
 
         all_jobs = []
         for scraper in [wttj, hellowork]:
@@ -155,6 +176,19 @@ def _run_scrape(user_id: str):
                 j for j in all_jobs
                 if not any(kw in f"{j['titre']} {j.get('description','')}".lower() for kw in exclus)
             ]
+
+        # Filtre secteurs d'activité (optionnel)
+        # Cherche chaque secteur dans titre + description + entreprise.
+        # Aucune invention : on ne conserve que les offres où le mot apparaît explicitement.
+        if secteurs:
+            all_jobs = [
+                j for j in all_jobs
+                if any(
+                    sec in f"{j['titre']} {j.get('description', '')} {j['entreprise']}".lower()
+                    for sec in secteurs
+                )
+            ]
+            logger.info(f"[{user_id[:8]}] Après filtre secteurs {secteurs}: {len(all_jobs)} jobs")
 
         # ── Crée le SearchRun EN PREMIER pour obtenir son ID ──────
         # Cela permet de lier chaque nouveau job à ce run (search_run_id).
@@ -274,7 +308,20 @@ def list_jobs(
     user_id: str = Depends(get_current_user_id),
     db: Session  = Depends(get_db),
 ):
-    q = db.query(Job).order_by(Job.date_publication.desc())
+    # ── Isolation stricte par utilisateur ─────────────────────
+    # On ne retourne QUE les jobs dont le search_run appartient
+    # à cet utilisateur. Les anciens jobs (search_run_id=NULL)
+    # ne sont plus visibles — l'utilisateur doit relancer un scrape.
+    user_run_ids = (
+        db.query(SearchRun.id)
+        .filter(SearchRun.user_id == user_id)
+        .scalar_subquery()
+    )
+    q = (
+        db.query(Job)
+        .filter(Job.search_run_id.in_(user_run_ids))
+        .order_by(Job.date_publication.desc())
+    )
 
     if search:
         term = f"%{search.lower()}%"
@@ -348,7 +395,18 @@ def get_stats(
     user_id: str = Depends(get_current_user_id),
     db: Session  = Depends(get_db),
 ):
-    total     = db.query(func.count(Job.id)).scalar() or 0
+    # Même isolation que list_jobs : on ne compte que les jobs
+    # liés aux search_runs de cet utilisateur.
+    user_run_ids = (
+        db.query(SearchRun.id)
+        .filter(SearchRun.user_id == user_id)
+        .scalar_subquery()
+    )
+    total     = (
+        db.query(func.count(Job.id))
+        .filter(Job.search_run_id.in_(user_run_ids))
+        .scalar() or 0
+    )
     a_traiter = db.query(func.count(JobStatus.id)).filter(
         JobStatus.user_id == user_id, JobStatus.statut == "a_traiter"
     ).scalar() or 0
@@ -387,6 +445,7 @@ def update_settings(
     s = _get_or_create_settings(db, user_id)
     s.mots_cles        = data.mots_cles
     s.localisation     = data.localisation
+    s.secteurs         = data.secteurs
     s.salaire_min      = data.salaire_min
     s.date_max         = data.date_max
     s.mots_cles_exclus = data.mots_cles_exclus
@@ -479,44 +538,32 @@ def delete_search_run(
             detail="Non autorisé : cette recherche ne vous appartient pas",
         )
 
-    # Jobs liés à ce run (seulement ceux créés par ce run)
-    linked_jobs = db.query(Job).filter(Job.search_run_id == run_id).all()
+    # Suppression directe des jobs liés à ce run.
+    # C'est safe car :
+    # - list_jobs filtre déjà par search_run_id IN (user's runs)
+    # - donc aucun autre utilisateur ne peut voir ces jobs (ils ne sont
+    #   accessibles qu'au user dont le run les a découverts)
+    # - la déduplication garantit qu'un job n'appartient qu'à UN run
+    # - job_status sera cascadé via ON DELETE CASCADE
+    jobs_deleted = (
+        db.query(func.count(Job.id))
+        .filter(Job.search_run_id == run_id)
+        .scalar() or 0
+    )
+    db.query(Job).filter(
+        Job.search_run_id == run_id
+    ).delete(synchronize_session=False)
 
-    jobs_deleted  = 0
-    jobs_kept     = 0
-
-    for job in linked_jobs:
-        other_status = db.query(JobStatus).filter(
-            JobStatus.job_id  == job.id,
-            JobStatus.user_id != user_id,
-        ).first()
-
-        if other_status is None:
-            # Aucun autre utilisateur n'a de statut → suppression complète
-            # (job_status de l'utilisateur courant sera cascadé via ON DELETE CASCADE)
-            db.delete(job)
-            jobs_deleted += 1
-        else:
-            # Un autre utilisateur utilise ce job → on garde le job
-            # mais on retire le statut de l'utilisateur courant
-            db.query(JobStatus).filter(
-                JobStatus.job_id  == job.id,
-                JobStatus.user_id == user_id,
-            ).delete(synchronize_session=False)
-            jobs_kept += 1
-
-    # Supprime la recherche elle-même
     db.delete(run)
     db.commit()
 
     logger.info(
-        "[%s] delete_search_run run_id=%s → %d jobs supprimés, %d conservés (autre user)",
-        user_id[:8], run_id, jobs_deleted, jobs_kept,
+        "[%s] delete_search_run run_id=%s → %d jobs supprimés",
+        user_id[:8], run_id, jobs_deleted,
     )
     return {
         "deleted_run_id": run_id,
         "jobs_deleted":   jobs_deleted,
-        "jobs_kept":      jobs_kept,
     }
 
 

@@ -47,6 +47,7 @@ class StatusOut(BaseModel):
 class SettingsOut(BaseModel):
     mots_cles: List[str]
     localisation: List[str]
+    secteurs: List[str] = []
     salaire_min: Optional[int] = None
     date_max: int
     mots_cles_exclus: List[str]
@@ -57,6 +58,7 @@ class SettingsOut(BaseModel):
 class SettingsUpdate(BaseModel):
     mots_cles: List[str]
     localisation: List[str]
+    secteurs: List[str] = []
     salaire_min: Optional[int] = None
     date_max: int = 30
     mots_cles_exclus: List[str] = []

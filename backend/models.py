@@ -50,11 +50,12 @@ class UserSettings(Base):
     __tablename__ = "user_settings"
 
     user_id          = Column(String, primary_key=True)
-    mots_cles        = Column(JSON, default=["business developer", "sales ops", "revops"])
-    localisation     = Column(JSON, default=["Lyon"])
+    mots_cles        = Column(JSON, default=lambda: ["développeur", "chef de projet"])
+    localisation     = Column(JSON, default=lambda: ["Paris"])
+    secteurs         = Column(JSON, default=lambda: [])   # ex: ["SaaS", "fintech"]
     salaire_min      = Column(Integer, nullable=True)
     date_max         = Column(Integer, default=30)
-    mots_cles_exclus = Column(JSON, default=[])
+    mots_cles_exclus = Column(JSON, default=lambda: [])
 
 
 class SearchRun(Base):

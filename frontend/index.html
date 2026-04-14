@@ -196,6 +196,16 @@
       align-items: center; gap: 0.5rem; margin: 0 1.5rem;
     }
     .wakeup-banner.visible { display: flex; }
+
+    /* ── Lien mot de passe oublié ── */
+    .auth-link { color: var(--muted); font-size: 0.8rem; text-align: center; margin-top: 0.6rem; cursor: pointer; }
+    .auth-link:hover { color: var(--accent); }
+    .auth-link a { color: inherit; text-decoration: none; }
+
+    /* ── Modal de confirmation ── */
+    .confirm-msg { color: var(--muted); font-size: 0.9rem; line-height: 1.55; margin: 0 0 0.25rem; }
+    .btn-danger   { background: var(--red) !important; }
+    .btn-danger:hover:not(:disabled) { filter: brightness(1.15); }
   </style>
 </head>
 <body>
@@ -228,6 +238,7 @@
       <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" />
       <button class="auth-btn" id="btn-login" onclick="doLogin()">Se connecter</button>
       <div class="auth-error" id="login-error"></div>
+      <div class="auth-link"><a href="#" onclick="showForgotPassword();return false;">Mot de passe oublié ?</a></div>
     </div>
 
     <!-- Signup form -->
@@ -239,6 +250,28 @@
       <button class="auth-btn" id="btn-signup" onclick="doSignup()">Créer mon compte</button>
       <div class="auth-error" id="signup-error"></div>
       <div class="auth-success" id="signup-success"></div>
+    </div>
+
+    <!-- Forgot password form -->
+    <div id="form-forgot" class="auth-form" style="display:none;">
+      <label>Votre adresse email</label>
+      <input type="email" id="forgot-email" placeholder="vous@exemple.com" autocomplete="email" />
+      <button class="auth-btn" id="btn-forgot" onclick="doForgotPassword()">Envoyer le lien de réinitialisation</button>
+      <div class="auth-error"   id="forgot-error"></div>
+      <div class="auth-success" id="forgot-success"></div>
+      <div class="auth-link" style="margin-top:0.75rem;"><a href="#" onclick="switchTab('login');return false;">← Retour à la connexion</a></div>
+    </div>
+
+    <!-- Reset password form (affiché après clic sur le lien email) -->
+    <div id="form-reset" class="auth-form" style="display:none;">
+      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem;line-height:1.5;">Choisissez un nouveau mot de passe pour votre compte.</p>
+      <label>Nouveau mot de passe</label>
+      <input type="password" id="reset-pass"         placeholder="Min. 8 caractères" autocomplete="new-password" />
+      <label>Confirmer le mot de passe</label>
+      <input type="password" id="reset-pass-confirm" placeholder="••••••••"           autocomplete="new-password" />
+      <button class="auth-btn" id="btn-reset" onclick="doResetPassword()">Enregistrer le nouveau mot de passe</button>
+      <div class="auth-error"   id="reset-error"></div>
+      <div class="auth-success" id="reset-success"></div>
     </div>
   </div>
 </div>
@@ -342,23 +375,40 @@
 
 </div><!-- end app-screen -->
 
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal-box" style="max-width:440px;">
+    <h3 id="confirm-modal-title">Confirmer la suppression</h3>
+    <p class="confirm-msg" id="confirm-modal-msg"></p>
+    <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1.75rem;">
+      <button class="btn-outline-custom" onclick="closeConfirmModal()">Annuler</button>
+      <button class="btn-primary-custom btn-danger" id="confirm-modal-ok">Supprimer</button>
+    </div>
+  </div>
+</div>
+
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settings-modal" onclick="closeSettingsOnBg(event)">
   <div class="modal-box">
     <h3><i class="bi bi-sliders" style="color:var(--accent);margin-right:0.5rem;"></i>Paramètres de recherche</h3>
     <div class="form-group">
       <label>Mots-clés</label>
-      <input type="text" id="s-mots-cles" placeholder="business developer, sales ops, revops" />
-      <div class="form-hint">Séparés par des virgules</div>
+      <input type="text" id="s-mots-cles" placeholder="développeur web, chef de projet, data analyst" />
+      <div class="form-hint">Séparés par des virgules — tous types de métiers acceptés</div>
     </div>
     <div class="form-group">
       <label>Localisations</label>
-      <input type="text" id="s-localisation" placeholder="Lyon, remote" />
+      <input type="text" id="s-localisation" placeholder="Paris, Lyon, Remote" />
       <div class="form-hint">Séparées par des virgules</div>
     </div>
     <div class="form-group">
+      <label>Secteurs d'activité <span style="color:var(--muted);font-weight:400;">(optionnel)</span></label>
+      <input type="text" id="s-secteurs" placeholder="SaaS, fintech, e-commerce, santé, industrie" />
+      <div class="form-hint">Filtre les offres contenant ces mots dans le titre ou la description</div>
+    </div>
+    <div class="form-group">
       <label>Salaire minimum (€/an)</label>
-      <input type="number" id="s-salaire-min" placeholder="35000" />
+      <input type="number" id="s-salaire-min" placeholder="40000" />
     </div>
     <div class="form-group">
       <label>Offres max (jours)</label>
@@ -366,7 +416,7 @@
     </div>
     <div class="form-group">
       <label>Mots-clés exclus</label>
-      <input type="text" id="s-exclus" placeholder="stage, alternance" />
+      <input type="text" id="s-exclus" placeholder="stage, alternance, bénévolat" />
       <div class="form-hint">Séparés par des virgules</div>
     </div>
     <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1.5rem;">
@@ -417,10 +467,70 @@ let scrapePoller = null;
 // ════════════════════════════════════════════════════════════
 
 function switchTab(tab) {
-  document.getElementById('form-login').style.display  = tab === 'login'  ? '' : 'none';
-  document.getElementById('form-signup').style.display = tab === 'signup' ? '' : 'none';
+  // Réaffiche les onglets au cas où ils auraient été cachés (mot de passe oublié)
+  document.querySelector('.auth-tabs').style.display = '';
+  document.querySelector('.auth-sub').textContent    = 'Trouvez votre prochain poste';
+  document.getElementById('form-login').style.display   = tab === 'login'  ? '' : 'none';
+  document.getElementById('form-signup').style.display  = tab === 'signup' ? '' : 'none';
+  document.getElementById('form-forgot').style.display  = 'none';
+  document.getElementById('form-reset').style.display   = 'none';
   document.getElementById('tab-login').className  = 'auth-tab' + (tab === 'login'  ? ' active' : '');
   document.getElementById('tab-signup').className = 'auth-tab' + (tab === 'signup' ? ' active' : '');
+}
+
+// ── Mot de passe oublié ───────────────────────────────────────
+
+function showForgotPassword() {
+  document.querySelector('.auth-tabs').style.display  = 'none';
+  document.querySelector('.auth-sub').textContent     = 'Réinitialiser votre mot de passe';
+  document.getElementById('form-login').style.display  = 'none';
+  document.getElementById('form-signup').style.display = 'none';
+  document.getElementById('form-forgot').style.display = '';
+  document.getElementById('form-reset').style.display  = 'none';
+}
+
+async function doForgotPassword() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const err   = document.getElementById('forgot-error');
+  const succ  = document.getElementById('forgot-success');
+  const btn   = document.getElementById('btn-forgot');
+  err.textContent = ''; succ.textContent = '';
+  if (!email) { err.textContent = 'Veuillez entrer votre adresse email.'; return; }
+  btn.disabled = true; btn.textContent = 'Envoi…';
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  });
+  btn.disabled = false; btn.textContent = 'Envoyer le lien de réinitialisation';
+  if (error) { err.textContent = error.message; return; }
+  succ.textContent = '✓ Lien envoyé ! Vérifiez votre boîte email.';
+}
+
+function showResetPassword() {
+  hideLoading();
+  showAuthScreen();
+  document.querySelector('.auth-tabs').style.display  = 'none';
+  document.querySelector('.auth-sub').textContent     = 'Nouveau mot de passe';
+  document.getElementById('form-login').style.display  = 'none';
+  document.getElementById('form-signup').style.display = 'none';
+  document.getElementById('form-forgot').style.display = 'none';
+  document.getElementById('form-reset').style.display  = '';
+}
+
+async function doResetPassword() {
+  const pass    = document.getElementById('reset-pass').value;
+  const confirm = document.getElementById('reset-pass-confirm').value;
+  const err     = document.getElementById('reset-error');
+  const succ    = document.getElementById('reset-success');
+  const btn     = document.getElementById('btn-reset');
+  err.textContent = ''; succ.textContent = '';
+  if (pass.length < 8)   { err.textContent = 'Minimum 8 caractères.'; return; }
+  if (pass !== confirm)  { err.textContent = 'Les mots de passe ne correspondent pas.'; return; }
+  btn.disabled = true; btn.textContent = 'Mise à jour…';
+  const { error } = await sb.auth.updateUser({ password: pass });
+  btn.disabled = false; btn.textContent = 'Enregistrer le nouveau mot de passe';
+  if (error) { err.textContent = error.message; return; }
+  succ.textContent = '✓ Mot de passe modifié ! Redirection…';
+  setTimeout(() => { switchTab('login'); }, 2000);
 }
 
 async function doLogin() {
@@ -802,6 +912,7 @@ async function openSettings() {
     const s = await apiFetch('/api/settings');
     document.getElementById('s-mots-cles').value    = (s.mots_cles || []).join(', ');
     document.getElementById('s-localisation').value = (s.localisation || []).join(', ');
+    document.getElementById('s-secteurs').value     = (s.secteurs || []).join(', ');
     document.getElementById('s-salaire-min').value  = s.salaire_min || '';
     document.getElementById('s-date-max').value     = s.date_max || 30;
     document.getElementById('s-exclus').value       = (s.mots_cles_exclus || []).join(', ');
@@ -815,10 +926,11 @@ function closeSettingsOnBg(e) { if (e.target.id === 'settings-modal') closeSetti
 async function saveSettings() {
   const split = s => s.split(',').map(x => x.trim()).filter(Boolean);
   const payload = {
-    mots_cles:       split(document.getElementById('s-mots-cles').value),
-    localisation:    split(document.getElementById('s-localisation').value),
-    salaire_min:     parseInt(document.getElementById('s-salaire-min').value) || null,
-    date_max:        parseInt(document.getElementById('s-date-max').value) || 30,
+    mots_cles:        split(document.getElementById('s-mots-cles').value),
+    localisation:     split(document.getElementById('s-localisation').value),
+    secteurs:         split(document.getElementById('s-secteurs').value),
+    salaire_min:      parseInt(document.getElementById('s-salaire-min').value) || null,
+    date_max:         parseInt(document.getElementById('s-date-max').value) || 30,
     mots_cles_exclus: split(document.getElementById('s-exclus').value),
   };
   try {
@@ -859,32 +971,50 @@ async function loadHistory() {
   } catch {}
 }
 
-async function deleteSearchRun(runId, nouveaux) {
-  const msg = nouveaux > 0
-    ? `Supprimer cette recherche et ses ${nouveaux} offre${nouveaux > 1 ? 's' : ''} associée${nouveaux > 1 ? 's' : ''} ?\n\nLes offres marquées par d'autres utilisateurs seront conservées.`
-    : 'Supprimer cette recherche de l\'historique ?';
+// ── Modal de confirmation générique ──────────────────────────
 
-  if (!confirm(msg)) return;
+function showConfirmModal(title, message, onConfirm, confirmLabel = 'Supprimer') {
+  document.getElementById('confirm-modal-title').textContent = title;
+  document.getElementById('confirm-modal-msg').textContent   = message;
+  const btn = document.getElementById('confirm-modal-ok');
+  btn.textContent = confirmLabel;
+  btn.onclick = () => { closeConfirmModal(); onConfirm(); };
+  document.getElementById('confirm-modal').classList.add('open');
+}
 
+function closeConfirmModal() {
+  document.getElementById('confirm-modal').classList.remove('open');
+}
+
+// ── Suppression d'une recherche ───────────────────────────────
+
+function deleteSearchRun(runId, nouveaux) {
+  const jobsMsg = nouveaux > 0
+    ? `Les ${nouveaux} offre${nouveaux > 1 ? 's' : ''} associée${nouveaux > 1 ? 's' : ''} seront retirées de votre dashboard.`
+    : 'Aucune offre associée ne sera affectée.';
+
+  showConfirmModal(
+    'Supprimer cette recherche ?',
+    `Cette recherche sera supprimée de l'historique. ${jobsMsg}`,
+    () => _execDeleteSearchRun(runId),
+  );
+}
+
+async function _execDeleteSearchRun(runId) {
   const btn = document.querySelector(`#run-row-${runId} .btn-delete-run`);
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i>'; }
 
   try {
     const result = await apiFetch(`/api/search-runs/${runId}`, { method: 'DELETE' });
-    // Retire la ligne de l'historique
     document.getElementById(`run-row-${runId}`)?.remove();
-    // Message de confirmation
-    const msg2 = result.jobs_deleted > 0
+    const msg = result.jobs_deleted > 0
       ? `Recherche supprimée — ${result.jobs_deleted} offre${result.jobs_deleted > 1 ? 's' : ''} retirée${result.jobs_deleted > 1 ? 's' : ''}`
-      : 'Recherche supprimée de l\'historique';
-    toast(msg2, 'success');
-    // Si des jobs ont été supprimés → recharge la liste des offres et les stats
+      : "Recherche supprimée de l'historique";
+    toast(msg, 'success');
     if (result.jobs_deleted > 0) {
       await Promise.all([loadJobs(), loadStats()]);
     }
-    // Si l'historique est maintenant vide, affiche le message vide
-    const remaining = document.querySelectorAll('#history-list .history-row');
-    if (remaining.length === 0) {
+    if (!document.querySelectorAll('#history-list .history-row').length) {
       document.getElementById('history-list').innerHTML =
         '<div class="empty-state"><i class="bi bi-clock-history"></i>Aucune recherche effectuée.</div>';
     }
@@ -967,7 +1097,11 @@ if (CONFIG.POSTHOG_KEY) {
   //    déclenchés pendant l'échange du code PKCE ou du hash #access_token=…
   sb.auth.onAuthStateChange((event, session) => {
     console.log('[auth] onAuthStateChange event:', event, '— session:', !!session, '— currentSession:', !!currentSession);
-    if (event === 'SIGNED_IN' && session && !currentSession) {
+    if (event === 'PASSWORD_RECOVERY') {
+      // L'utilisateur a cliqué sur le lien de réinitialisation dans son email
+      console.log('[auth] PASSWORD_RECOVERY → showResetPassword');
+      showResetPassword();
+    } else if (event === 'SIGNED_IN' && session && !currentSession) {
       onSessionReady(session);
     } else if (event === 'TOKEN_REFRESHED' && session) {
       console.log('[auth] token refreshed silencieusement');
