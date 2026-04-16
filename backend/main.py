@@ -662,5 +662,19 @@ def health():
 
 # ── Serve frontend (mode monolithique — optionnel) ────────────
 import os
+from fastapi.responses import FileResponse
+
 if os.path.isdir("frontend"):
+    @app.get("/", include_in_schema=False)
+    def serve_landing():
+        return FileResponse("frontend/landing.html")
+
+    @app.get("/app", include_in_schema=False)
+    def serve_app():
+        return FileResponse("frontend/index.html")
+
+    @app.get("/login", include_in_schema=False)
+    def serve_login():
+        return FileResponse("frontend/index.html")
+
     app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
