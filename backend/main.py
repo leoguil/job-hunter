@@ -108,15 +108,13 @@ app = FastAPI(title="Job Hunter API", version="2.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://hunt-inky.vercel.app",
-        # Previews Vercel (ex: https://hunt-abc123.vercel.app)
-        "https://*.vercel.app",
+        "https://firstapply.fr",
+        "https://www.firstapply.fr",
         # Dev local
         "http://localhost:8000",
         "http://localhost:3000",
         "http://127.0.0.1:8000",
     ],
-    allow_origin_regex=r"https://hunt.*\.vercel\.app",
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     allow_credentials=False,
